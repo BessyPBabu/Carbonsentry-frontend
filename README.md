@@ -1,16 +1,41 @@
-# React + Vite
+# CarbonSentry
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Project Overview
 
-Currently, two official plugins are available:
+CarbonSentry is a carbon compliance and vendor management platform built to help organizations track, verify, and manage carbon-related compliance data in one place.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Many organizations work with multiple vendors and are required to collect carbon compliance documents, validate them, and prove compliance during audits. Today, this process is often manual, scattered across emails and spreadsheets, and difficult to audit.
 
-## React Compiler
+CarbonSentry centralizes this entire workflow into a structured system.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## The Problem
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Organizations face several common problems when managing carbon compliance:
+
+- Vendor documents are stored in emails, folders, or spreadsheets
+- No clear visibility into which vendors are compliant or non-compliant
+- Manual document verification is time-consuming and error-prone
+- Roles and responsibilities are unclear across teams
+- Audit preparation requires collecting data from multiple sources
+
+These issues lead to **compliance risks, operational delays, and poor accountability**.
+
+---
+
+## The Solution
+
+CarbonSentry solves these problems by providing:
+
+- A **centralized platform** for managing vendors and compliance documents
+- **Role-based access control** so each user sees only what they are allowed to
+- Structured **vendor onboarding and document tracking**
+- Clear compliance status and risk visibility
+- An **audit-ready system** with proper logging and traceability
+
+By automating and structuring the compliance workflow, CarbonSentry reduces manual effort, improves transparency, and helps organizations stay compliant with confidence.
+
+---
+
+CarbonSentry is designed with a clean, modular architecture to support long-term scalability and real-world compliance needs.
