@@ -14,12 +14,11 @@ export default function EditUser() {
     full_name: "",
     email: "",
     role: "officer",
-    status: "active",
+    is_active: true,
   });
 
   useEffect(() => {
     fetchUser();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchUser = async () => {
@@ -29,7 +28,7 @@ export default function EditUser() {
         full_name: res.data.full_name,
         email: res.data.email,
         role: res.data.role,
-        status: res.data.status,
+        status: res.data.is_active,
       });
     } catch {
       toast.error("Failed to load user");
@@ -41,7 +40,7 @@ export default function EditUser() {
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
-
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -50,10 +49,10 @@ export default function EditUser() {
       await api.patch(`/accounts/users/${id}/`, {
         full_name: formData.full_name,
         role: formData.role,
-        status: formData.status,
+        status: formData.is_active,
       });
       toast.success("User updated successfully");
-      navigate("/user-management");
+      navigate("/admin/user-management");
     } catch {
       toast.error("Failed to update user");
     } finally {
@@ -98,19 +97,19 @@ export default function EditUser() {
           </select>
 
           <select
-            name="status"
-            value={formData.status}
-            onChange={handleChange}
+            name="is_active"  
+            value={formData.is_active}
+            onChange={(e) => setFormData(prev => ({ ...prev, is_active: e.target.value === 'true' }))}
             className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
           >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
+            <option value="true">Active</option> 
+            <option value="false">Inactive</option>
           </select>
 
           <div className="grid grid-cols-2 gap-4 pt-4">
             <button
               type="button"
-              onClick={() => navigate("/user-management")}
+              onClick={() => navigate("/admin/user-management")}
               className="border border-gray-300 rounded-md py-2"
             >
               Cancel

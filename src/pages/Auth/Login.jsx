@@ -26,7 +26,7 @@ export default function Login() {
 
       if (result.must_change_password) {
         toast.info("Please change your password to continue");
-        navigate("/change-password", { replace: true });
+        navigate("/reset-password", { replace: true });
         return; 
       }
 

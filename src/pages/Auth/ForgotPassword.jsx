@@ -16,7 +16,7 @@ export default function ForgotPassword() {
     const payloadEmail = email.trim().toLowerCase();
 
     try {
-      await api.post("accounts/password/forgot/", {
+      await api.post("accounts/auth/password/forgot/", {
         email: payloadEmail,
       });
 

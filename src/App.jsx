@@ -9,13 +9,18 @@ import Login from "./pages/Auth/Login";
 import Register from "./pages/Auth/Register";
 import ForgotPassword from "./pages/Auth/ForgotPassword";
 import ResetPassword from "./pages/Auth/ResetPassword";
-// import ForceChangePassword from "./pages/Auth/ForceChangePassword";  // ← KEEP COMMENTED
 
 import AdminDashboard from "./pages/Admin/Dashboard";
 import UserManagement from "./pages/Admin/UserManagement";
 import AddUser from "./pages/Admin/AddUser";
 import EditUser from "./pages/Admin/EditUser";
 import Settings from "./pages/Admin/Settings";
+
+import OfficerDashboard from "./pages/Officer/Dashboard";
+import ViewerDashboard from "./pages/Viewer/Dashboard";
+
+// Common placeholder
+import ComingSoon from "./components/Common/ComingSoon";
 
 function App() {
   return (
@@ -37,13 +42,50 @@ function App() {
                   <DashboardLayout />
                 </ProtectedRoute>
               }
-            > 
+            >
               <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="vendors" element={<ComingSoon title="Vendors" />} />
+              <Route path="risk-analysis" element={<ComingSoon title="Risk Analysis" />} />
+              <Route path="reports" element={<ComingSoon title="Reports" />} />
+              <Route path="audit-logs" element={<ComingSoon title="Audit Logs" />} />
+              
               <Route path="user-management" element={<UserManagement />} />
               <Route path="user-management/add" element={<AddUser />} />
               <Route path="user-management/edit/:id" element={<EditUser />} />
               <Route path="settings" element={<Settings />} />
             </Route>
+
+            <Route
+              path="/officer"
+              element={
+                <ProtectedRoute allowedRoles={["officer"]}>
+                  <DashboardLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="dashboard" element={<OfficerDashboard />} />
+              <Route path="vendors" element={<ComingSoon title="Vendors" />} />
+              <Route path="documents" element={<ComingSoon title="Documents" />} />
+              <Route path="ai-review-queue" element={<ComingSoon title="AI Review Queue" />} />
+              <Route path="risk-analysis" element={<ComingSoon title="Risk Analysis" />} />
+              <Route path="reports" element={<ComingSoon title="Reports" />} />
+              <Route path="audit-logs" element={<ComingSoon title="Audit Logs" />} />
+            </Route>
+
+            <Route
+              path="/viewer"
+              element={
+                <ProtectedRoute allowedRoles={["viewer"]}>
+                  <DashboardLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="dashboard" element={<ViewerDashboard />} />
+              <Route path="vendors" element={<ComingSoon title="Vendors" />} />
+              <Route path="risk-analysis" element={<ComingSoon title="Risk Analysis" />} />
+              <Route path="reports" element={<ComingSoon title="Reports" />} />
+            </Route>
+
 
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>

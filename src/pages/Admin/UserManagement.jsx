@@ -47,7 +47,7 @@ export default function UserManagement() {
 
       <div className="flex gap-4 mb-6">
         <button
-          onClick={() => navigate("/user-management/add")}
+          onClick={() => navigate("/admin/user-management/add")}
           className="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md"
         >
           + Add User
@@ -87,12 +87,12 @@ export default function UserManagement() {
                 <tr key={u.id} className="border-b">
                   <td className="px-6 py-4">{u.full_name}</td>
                   <td className="px-6 py-4">{u.email}</td>
-                  <td className="px-6 py-4">{u.role_display}</td>
+                  <td className="px-6 py-4">{u.role}</td>
                   <td className="px-6 py-4">{u.status}</td>
                   <td className="px-6 py-4">
                     <button
                       onClick={() =>
-                        navigate(`/user-management/edit/${u.id}`)
+                        navigate(`/admin/user-management/edit/${u.id}`)
                       }
                       className="text-primary-600 hover:underline"
                     >

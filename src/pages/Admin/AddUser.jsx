@@ -30,7 +30,7 @@ export default function AddUser() {
     try {
       await api.post("/accounts/users/add/", formData);
       toast.success("User created successfully");
-      navigate("/user-management");
+      navigate("/admin/user-management");
     } catch (err) {
       toast.error("Failed to create user. Please check inputs.");
     } finally {
@@ -139,7 +139,7 @@ export default function AddUser() {
           <div className="pt-4 grid grid-cols-2 gap-4">
             <button
               type="button"
-              onClick={() => navigate("/user-management")}
+              onClick={() => navigate("/admin/user-management")}
               className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
             >
               Cancel

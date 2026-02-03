@@ -68,28 +68,25 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password) => {
-    const res = await api.post("accounts/auth/login/", {
-      email: email.toLowerCase(),
-      password,
-    });
+  const res = await api.post("accounts/auth/login/", {
+    email: email.toLowerCase(),
+    password,
+  });
 
-    const { access, refresh, role, must_change_password } = res.data;
+  const { access, refresh, role, must_change_password } = res.data;
 
-    localStorage.setItem("access", access);
-    localStorage.setItem("refresh", refresh);
+  localStorage.setItem("access", access);
+  localStorage.setItem("refresh", refresh);
 
-    if (must_change_password) {
-      return { redirect: "/force-change-password" };
-    }
+  setIsAuthenticated(true);
+  setRole(role);
 
-    setIsAuthenticated(true);
-    setRole(role);
+  await loadUser();
+  if (role === "admin") await loadOrganization();
 
-    await loadUser();
-    if (role === "admin") await loadOrganization();
-
-     return { role, must_change_password };
-  };
+  
+  return { role, must_change_password };
+};
 
   return (
     <AuthContext.Provider
