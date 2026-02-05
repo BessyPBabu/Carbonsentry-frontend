@@ -1,8 +1,9 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 
 export default function ProtectedRoute({ children, allowedRoles }) {
-  const { isAuthenticated, role, loading } = useAuth();
+  const { isAuthenticated, user, role, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -16,8 +17,24 @@ export default function ProtectedRoute({ children, allowedRoles }) {
     return <Navigate to="/login" replace />;
   }
 
+  if (
+    (role === "officer" || role === "viewer") &&
+    user?.must_change_password &&
+    location.pathname !== "/force-change-password"
+  ) {
+    return <Navigate to="/force-change-password" replace />;
+  }
+
   if (allowedRoles && !allowedRoles.includes(role)) {
-    if (role === "admin") return <Navigate to="/admin/dashboard" replace />;
+    if (role === "admin") {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
+    if (role === "officer") {
+      return <Navigate to="/officer/dashboard" replace />;
+    }
+    if (role === "viewer") {
+      return <Navigate to="/viewer/dashboard" replace />;
+    }
     return <Navigate to="/login" replace />;
   }
 

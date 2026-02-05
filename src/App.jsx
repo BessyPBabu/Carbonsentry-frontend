@@ -4,6 +4,8 @@ import { ToastContainer } from "react-toastify";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
 import DashboardLayout from "./components/Layout/DashboardLayout";
+import ForceChangePassword from "./pages/Auth/ForceChangePassword";
+
 
 import Login from "./pages/Auth/Login";
 import Register from "./pages/Auth/Register";
@@ -17,6 +19,15 @@ import EditUser from "./pages/Admin/EditUser";
 import Settings from "./pages/Admin/Settings";
 
 import OfficerDashboard from "./pages/Officer/Dashboard";
+import VendorsList from "./pages/Officer/Vendors/VendorsList";
+import AddVendor from "./pages/Officer/Vendors/AddVendor";
+import BulkUpload from "./pages/Officer/Vendors/BulkUpload";
+import VendorDetails from "./pages/Officer/Vendors/VendorDetails";
+import DocumentsList from "./pages/Officer/Documents/DocumentsList";
+import ManualUpload from "./pages/Officer/Documents/ManualUpload";
+
+import VendorUpload from "./pages/Public/VendorUpload";
+
 import ViewerDashboard from "./pages/Viewer/Dashboard";
 
 // Common placeholder
@@ -35,6 +46,11 @@ function App() {
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password/:uid/:token" element={<ResetPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/force-change-password" element={<ForceChangePassword />} />
+
+            <Route path="/upload/:token" element={<VendorUpload />} />
+            
+
             <Route
               path="/admin"
               element={
@@ -44,7 +60,8 @@ function App() {
               }
             >
               <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="vendors" element={<ComingSoon title="Vendors" />} />
+              <Route path="vendors" element={<VendorsList />} />
+
               <Route path="risk-analysis" element={<ComingSoon title="Risk Analysis" />} />
               <Route path="reports" element={<ComingSoon title="Reports" />} />
               <Route path="audit-logs" element={<ComingSoon title="Audit Logs" />} />
@@ -64,8 +81,17 @@ function App() {
               }
             >
               <Route path="dashboard" element={<OfficerDashboard />} />
-              <Route path="vendors" element={<ComingSoon title="Vendors" />} />
-              <Route path="documents" element={<ComingSoon title="Documents" />} />
+              <Route path="vendors">
+              <Route index element={<VendorsList />} />
+              <Route path="add" element={<AddVendor />} />
+              <Route path="bulk-upload" element={<BulkUpload />} />
+              <Route path=":id" element={<VendorDetails />} />
+            </Route>
+
+            <Route path="documents">
+              <Route index element={<DocumentsList />} />
+              <Route path="manual-upload" element={<ManualUpload />} />
+            </Route>
               <Route path="ai-review-queue" element={<ComingSoon title="AI Review Queue" />} />
               <Route path="risk-analysis" element={<ComingSoon title="Risk Analysis" />} />
               <Route path="reports" element={<ComingSoon title="Reports" />} />
@@ -81,7 +107,7 @@ function App() {
               }
             >
               <Route path="dashboard" element={<ViewerDashboard />} />
-              <Route path="vendors" element={<ComingSoon title="Vendors" />} />
+              <Route path="vendors" element={<VendorsList />} />
               <Route path="risk-analysis" element={<ComingSoon title="Risk Analysis" />} />
               <Route path="reports" element={<ComingSoon title="Reports" />} />
             </Route>

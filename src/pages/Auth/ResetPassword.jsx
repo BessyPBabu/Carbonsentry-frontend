@@ -7,8 +7,6 @@ export default function ResetPassword() {
   const navigate = useNavigate();
   const { uid, token } = useParams();
   const { isAuthenticated, logout } = useAuth();
-
-  // Determine which mode we're in
   const isForgotPasswordMode = !!(uid && token);
   const isForceChangeMode = isAuthenticated && !isForgotPasswordMode;
 
@@ -29,7 +27,6 @@ export default function ResetPassword() {
 
     try {
       if (isForgotPasswordMode) {
-        // Forgot password flow (with uid/token from email)
         await api.post("/accounts/auth/password/reset/", {
           uid,
           token,
@@ -42,15 +39,12 @@ export default function ResetPassword() {
         }, 2000);
 
       } else if (isForceChangeMode) {
-        // Force change password flow (logged in user)
         await api.post("/accounts/auth/password/change/", {
           current_password: currentPassword,
           new_password: newPassword,
         });
 
         setSuccess(true);
-        
-        // Logout after 2 seconds
         setTimeout(() => {
           logout();
           navigate("/login");
@@ -105,8 +99,6 @@ export default function ResetPassword() {
 
           {!success && (
             <form onSubmit={handleSubmit} className="space-y-5">
-              
-              {/* Show current password field only when user is logged in */}
               {isForceChangeMode && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -158,7 +150,7 @@ export default function ResetPassword() {
                 {isForceChangeMode ? "Change Password" : "Reset Password"}
               </button>
 
-              {/* Show cancel/logout button for force change mode */}
+              
               {isForceChangeMode && (
                 <button
                   type="button"

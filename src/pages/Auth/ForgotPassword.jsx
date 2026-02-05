@@ -8,7 +8,6 @@ export default function ForgotPassword() {
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  /* ================= HANDLE SUBMIT ================= */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -20,7 +19,6 @@ export default function ForgotPassword() {
         email: payloadEmail,
       });
 
-      // Always success (no user enumeration)
       setSent(true);
 
       toast.success(
@@ -28,7 +26,6 @@ export default function ForgotPassword() {
         { autoClose: 5000 }
       );
     } catch (err) {
-      // Still show success to avoid leaking info
       setSent(true);
 
       toast.info(

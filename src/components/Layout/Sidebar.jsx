@@ -41,7 +41,7 @@ export default function Sidebar({ role, organizationName }) {
       ];
     }
 
-    // viewer
+    
     return [
       ...baseItems,
       { path: "risk-analysis", label: "Risk Analysis", icon: AlertTriangle },
@@ -53,7 +53,6 @@ export default function Sidebar({ role, organizationName }) {
 
   return (
     <aside className="w-64 bg-[#1a8f70] text-white flex flex-col min-h-screen">
-      {/* LOGO + ORG */}
       <div className="px-6 py-6 border-b border-white/20">
         <h1 className="text-2xl font-bold">CarbonSentry</h1>
 

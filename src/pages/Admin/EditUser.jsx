@@ -10,11 +10,12 @@ export default function EditUser() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+
   const [formData, setFormData] = useState({
     full_name: "",
     email: "",
     role: "officer",
-    is_active: true,
+    is_active: true,  
   });
 
   useEffect(() => {
@@ -24,11 +25,12 @@ export default function EditUser() {
   const fetchUser = async () => {
     try {
       const res = await api.get(`/accounts/users/${id}/`);
+      
       setFormData({
         full_name: res.data.full_name,
         email: res.data.email,
         role: res.data.role,
-        status: res.data.is_active,
+        is_active: res.data.is_active,  
       });
     } catch {
       toast.error("Failed to load user");
@@ -49,7 +51,7 @@ export default function EditUser() {
       await api.patch(`/accounts/users/${id}/`, {
         full_name: formData.full_name,
         role: formData.role,
-        status: formData.is_active,
+        is_active: formData.is_active,  
       });
       toast.success("User updated successfully");
       navigate("/admin/user-management");
@@ -73,44 +75,73 @@ export default function EditUser() {
         <h2 className="text-2xl font-bold mb-6">Edit User</h2>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <input
-            name="full_name"
-            value={formData.full_name}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-700"
-          />
+          {/* Full Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Full Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              name="full_name"
+              value={formData.full_name}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-700"
+            />
+          </div>
 
-          <input
-            value={formData.email}
-            disabled
-            className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
-          />
+          {/* Email  */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Email Address
+            </label>
+            <input
+              value={formData.email}
+              disabled
+              className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+            />
+            <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+          </div>
 
-          <select
-            name="role"
-            value={formData.role}
-            onChange={handleChange}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
-          >
-            <option value="officer">Compliance Officer</option>
-            <option value="viewer">Viewer</option>
-          </select>
-
-          <select
-            name="is_active"  
-            value={formData.is_active}
-            onChange={(e) => setFormData(prev => ({ ...prev, is_active: e.target.value === 'true' }))}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
-          >
-            <option value="true">Active</option> 
-            <option value="false">Inactive</option>
-          </select>
+          {/* Role */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Role <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
+            >
+              <option value="officer">Compliance Officer</option>
+              <option value="viewer">Viewer</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Status <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="is_active"
+              value={formData.is_active}  
+              onChange={(e) => setFormData(prev => ({ 
+                ...prev, 
+                is_active: e.target.value === 'true'  
+              }))}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md bg-gray-50"
+            >
+              <option value={true}>Active</option>
+              <option value={false}>Inactive</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Inactive users cannot log in to the system
+            </p>
+          </div>
 
           <div className="grid grid-cols-2 gap-4 pt-4">
             <button
               type="button"
               onClick={() => navigate("/admin/user-management")}
-              className="border border-gray-300 rounded-md py-2"
+              className="border border-gray-300 rounded-md py-2 hover:bg-gray-50"
             >
               Cancel
             </button>
@@ -118,7 +149,7 @@ export default function EditUser() {
             <button
               type="submit"
               disabled={saving}
-              className="bg-primary-600 hover:bg-primary-700 text-white rounded-md py-2"
+              className="bg-[#1a8f70] hover:bg-[#12654e] text-white rounded-md py-2 disabled:opacity-60 transition-colors font-medium"
             >
               {saving ? "Updating..." : "Update User"}
             </button>

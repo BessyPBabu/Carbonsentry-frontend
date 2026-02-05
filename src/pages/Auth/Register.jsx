@@ -17,7 +17,6 @@ export default function Register() {
     password: "",
   });
 
-  /* ================= HANDLE INPUT CHANGE ================= */
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -25,7 +24,6 @@ export default function Register() {
     });
   };
 
-  /* ================= ERROR PARSER ================= */
   const getErrorMessage = (err) => {
     const data = err?.response?.data;
 
@@ -53,7 +51,6 @@ export default function Register() {
     return "Registration failed. Please check your inputs.";
   };
 
-  /* ================= VALIDATE PASSWORD ================= */
   const validatePassword = (password) => {
     const errors = [];
 
@@ -107,7 +104,6 @@ export default function Register() {
     return errors;
   };
 
-  /* ================= HANDLE SUBMIT ================= */
   const handleSubmit = async (e) => {
     e.preventDefault();
 
