@@ -30,7 +30,6 @@ import VendorUpload from "./pages/Public/VendorUpload";
 
 import ViewerDashboard from "./pages/Viewer/Dashboard";
 
-// Common placeholder
 import ComingSoon from "./components/Common/ComingSoon";
 
 function App() {
