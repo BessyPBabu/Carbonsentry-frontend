@@ -15,6 +15,7 @@ export default function AddVendor() {
     industry: "",
     country: "",
     contact_email: "",
+    send_emails: false,
   });
 
   useEffect(() => {
@@ -206,9 +207,23 @@ export default function AddVendor() {
               disabled={loading}
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1a8f70] outline-none disabled:opacity-50"
             />
-            <p className="text-xs text-gray-500 mt-1">
-              This email will receive document upload requests
-            </p>
+            <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={formData.send_emails}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  send_emails: e.target.checked,
+                }))
+              }
+              className="rounded border-gray-300"
+            />
+            <span className="ml-2 text-sm text-gray-700">
+              Send document request email to vendor
+            </span>
+          </label>
+
           </div>
 
           {/* Buttons */}
