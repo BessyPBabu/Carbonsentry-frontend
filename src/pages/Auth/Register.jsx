@@ -124,15 +124,15 @@ export default function Register() {
     };
 
     try {
-      await api.post("/accounts/organizations/register/", payload);
-
+      const response = await api.post("/accounts/organizations/register/", payload);
 
       toast.success(
-        "Organization registered successfully! Please login with your credentials.",
-        { autoClose: 5000 }
+        "Registration successful! Please check your email to verify your organization.",
+        { autoClose: 7000 }
       );
-
-      navigate("/login");
+      navigate("/verify-email-sent", { 
+        state: { email: response.data.email || payload.admin_email} 
+      });
     } catch (err) {
       toast.error(getErrorMessage(err), { autoClose: 5000 });
     } finally {

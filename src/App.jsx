@@ -4,13 +4,14 @@ import { ToastContainer } from "react-toastify";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
 import DashboardLayout from "./components/Layout/DashboardLayout";
+
 import ForceChangePassword from "./pages/Auth/ForceChangePassword";
-
-
 import Login from "./pages/Auth/Login";
 import Register from "./pages/Auth/Register";
 import ForgotPassword from "./pages/Auth/ForgotPassword";
 import ResetPassword from "./pages/Auth/ResetPassword";
+import VerifyEmail from "./pages/Auth/VerifyEmail";
+import VerifyEmailSent from "./pages/Auth/VerifyEmailSent";
 
 import AdminDashboard from "./pages/Admin/Dashboard";
 import UserManagement from "./pages/Admin/UserManagement";
@@ -46,10 +47,10 @@ function App() {
             <Route path="/reset-password/:uid/:token" element={<ResetPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/force-change-password" element={<ForceChangePassword />} />
-
+            <Route path="/verify-email/:token" element={<VerifyEmail />} />
+            <Route path="/verify-email-sent" element={<VerifyEmailSent />} />
             <Route path="/upload/:token" element={<VendorUpload />} />
             
-
             <Route
               path="/admin"
               element={

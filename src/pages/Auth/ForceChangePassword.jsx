@@ -6,7 +6,7 @@ import api from "../../services/api";
 
 export default function ForceChangePassword() {
   const navigate = useNavigate();
-  const { logout, user } = useAuth();
+  const { logout, user ,loadUser} = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -77,6 +77,7 @@ export default function ForceChangePassword() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     const passwordErrors = validatePassword(formData.new_password);
     if (passwordErrors.length > 0) {
       toast.error(passwordErrors.join(". "));
@@ -88,28 +89,75 @@ export default function ForceChangePassword() {
       return;
     }
 
+    if (formData.current_password === formData.new_password) {
+      toast.error("New password must be different from current password");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      await api.post("/accounts/auth/password/change/", {
+      const response = await api.post("/accounts/auth/password/change/", {
         current_password: formData.current_password,
         new_password: formData.new_password,
       });
 
-      toast.success("Password changed successfully! Please login again.");
+      toast.success("Password changed successfully! Redirecting to your dashboard...", {
+        autoClose: 2000,
+      });
+
+      // Reload user data to get updated is_active and must_change_password status
+      if (loadUser) {
+        await loadUser();
+      }
+
+      const redirectUrl = response.data?.redirect_url || getDashboardUrl(response.data?.user?.role || user?.role);
+
+      // Navigate to dashboard after short delay
       setTimeout(() => {
-        logout();
-        navigate("/login", { replace: true });
-      }, 1500);
+        navigate(redirectUrl, { replace: true });
+      }, 2000);
+
     } catch (err) {
-      const errorMsg =
-        err?.response?.data?.current_password?.[0] ||
-        err?.response?.data?.new_password?.[0] ||
-        err?.response?.data?.detail ||
-        "Failed to change password";
-      toast.error(errorMsg);
+      console.error("Password change error:", err);
+      
+      const errorData = err?.response?.data;
+      
+      if (errorData?.current_password) {
+        const msg = Array.isArray(errorData.current_password) 
+          ? errorData.current_password[0] 
+          : errorData.current_password;
+        toast.error(msg);
+      } else if (errorData?.new_password) {
+        const msg = Array.isArray(errorData.new_password) 
+          ? errorData.new_password[0] 
+          : errorData.new_password;
+        toast.error(msg);
+      } else if (errorData?.detail) {
+        toast.error(errorData.detail);
+      } else if (errorData?.error) {
+        toast.error(errorData.error);
+      } else {
+        toast.error("Failed to change password. Please try again.");
+      }
     } finally {
       setLoading(false);
+    }
+
+  };
+
+  const getDashboardUrl = (userRole) => {
+    const role = userRole || user?.role;
+    
+    switch (role) {
+      case "admin":
+        return "/admin/dashboard";
+      case "officer":
+        return "/officer/dashboard";
+      case "viewer":
+        return "/viewer/dashboard";
+      default:
+        return "/dashboard";
     }
   };
 

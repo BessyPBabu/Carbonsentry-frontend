@@ -38,12 +38,30 @@ export default function Login() {
       else  {
       toast.error("Unknown user role. Please contact support.");
       }
-    } catch {
-      toast.error("Invalid email or password");
-    } finally {
-      setSubmitting(false);
+    } catch (error) {
+    if (error.response?.status === 403 && error.response?.data?.error === "Organization not verified") {
+      toast.error(
+        "Please verify your organization email before logging in. Check your inbox for the verification link.",
+        { autoClose: 7000 }
+      );
+      return;
     }
-  };
+
+    if (error.response?.status === 401) {
+        toast.error("Invalid email or password");
+        return;
+    }
+
+    toast.error(
+        error.response?.data?.detail || 
+        error.response?.data?.error || 
+        "Login failed. Please try again."
+    );
+      
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   if (authLoading) {
     return (
