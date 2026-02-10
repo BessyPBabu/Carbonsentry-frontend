@@ -3,8 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import api from "../../../services/api";
 import {
-  getComplianceBadgeClass,
-  getRiskBadgeClass,
   getDocumentBadgeClass,
   formatDate,
 } from "../../../services/constants";
@@ -14,8 +12,10 @@ export default function VendorDetails() {
   const navigate = useNavigate();
 
   const [vendor, setVendor] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [documents, setDocuments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const [previewDocument, setPreviewDocument] = useState(null);
 
   useEffect(() => {
     fetchVendorDetails();
@@ -29,8 +29,8 @@ export default function VendorDetails() {
       const docsRes = await api.get(`/vendors/${id}/documents/`);
       setDocuments(docsRes.data);
     } catch (error) {
-      toast.error("Failed to load vendor details");
       console.error(error);
+      toast.error("Failed to load vendor details");
       navigate("/officer/vendors");
     } finally {
       setLoading(false);
@@ -38,7 +38,7 @@ export default function VendorDetails() {
   };
 
   const getStatusDisplay = (status) => {
-    const displayMap = {
+    const map = {
       pending: "Pending Upload",
       uploaded: "Uploaded",
       valid: "Valid",
@@ -46,33 +46,33 @@ export default function VendorDetails() {
       expired: "Expired",
       flagged: "Flagged for Review",
     };
-    return displayMap[status] || status;
+    return map[status] || status;
   };
 
   const getComplianceDisplay = (status) => {
-    const displayMap = {
+    const map = {
       pending: "Pending",
       compliant: "Compliant",
       non_compliant: "Non-Compliant",
       expired: "Expired",
     };
-    return displayMap[status] || status;
+    return map[status] || status;
   };
 
   const getRiskDisplay = (risk) => {
-    const displayMap = {
+    const map = {
       low: "Low",
       medium: "Medium",
       high: "High",
       critical: "Critical",
     };
-    return displayMap[risk] || risk;
+    return map[risk] || risk;
   };
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-screen">
-        <div className="text-gray-600">Loading vendor details...</div>
+      <div className="p-8 flex justify-center text-gray-600">
+        Loading vendor details...
       </div>
     );
   }
@@ -93,7 +93,7 @@ export default function VendorDetails() {
       <div>
         <button
           onClick={() => navigate("/officer/vendors")}
-          className="text-gray-600 hover:text-gray-800 mb-2 text-sm"
+          className="text-sm text-gray-600 hover:text-gray-800 mb-2"
         >
           ← Back to Vendors
         </button>
@@ -131,10 +131,7 @@ export default function VendorDetails() {
               : "red"
           }
         />
-        <InfoCard
-          title="Total Documents"
-          value={documents.length}
-        />
+        <InfoCard title="Total Documents" value={documents.length} />
         <InfoCard
           title="Pending Documents"
           value={pendingDocs.length}
@@ -165,7 +162,7 @@ export default function VendorDetails() {
         </h2>
 
         {documents.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center text-gray-500 py-8">
             No documents found for this vendor
           </div>
         ) : (
@@ -173,24 +170,13 @@ export default function VendorDetails() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left w-1/5">
-                    Document Type
-                  </th>
-                  <th className="px-4 py-3 text-left w-1/5">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left w-1/5">
-                    Expiry Date
-                  </th>
-                  <th className="px-4 py-3 text-left w-1/5">
-                    Uploaded
-                  </th>
-                  <th className="px-4 py-3 text-center w-1/5">
-                    File
-                  </th>
+                  <th className="px-4 py-3 text-left">Document Type</th>
+                  <th className="px-4 py-3 text-left">Status</th>
+                  <th className="px-4 py-3 text-left">Expiry</th>
+                  <th className="px-4 py-3 text-left">Uploaded</th>
+                  <th className="px-4 py-3 text-center">File</th>
                 </tr>
               </thead>
-
               <tbody>
                 {documents.map((doc) => (
                   <tr key={doc.id} className="border-t hover:bg-gray-50">
@@ -207,19 +193,9 @@ export default function VendorDetails() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      {doc.expiry_date ? (
-                        <span
-                          className={
-                            new Date(doc.expiry_date) < new Date()
-                              ? "text-red-600 font-medium"
-                              : ""
-                          }
-                        >
-                          {formatDate(doc.expiry_date)}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
+                      {doc.expiry_date
+                        ? formatDate(doc.expiry_date)
+                        : "—"}
                     </td>
                     <td className="px-4 py-3">
                       {doc.uploaded_at
@@ -228,14 +204,12 @@ export default function VendorDetails() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       {doc.file ? (
-                        <a
-                          href={doc.file}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          onClick={() => setPreviewDocument(doc)}
                           className="text-[#1a8f70] hover:underline font-medium"
                         >
-                          View
-                        </a>
+                          View Details
+                        </button>
                       ) : (
                         <span className="text-gray-400">—</span>
                       )}
@@ -247,6 +221,94 @@ export default function VendorDetails() {
           </div>
         )}
       </div>
+
+      {/* Document Preview Modal */}
+      {previewDocument && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-auto">
+            <div className="p-6 border-b flex justify-between items-center">
+              <h3 className="text-xl font-bold">Document Details</h3>
+              <button
+                onClick={() => setPreviewDocument(null)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <DetailRow
+                  label="Document Type"
+                  value={previewDocument.document_type}
+                />
+                <DetailRow
+                  label="Status"
+                  value={getStatusDisplay(previewDocument.status)}
+                />
+                <DetailRow
+                  label="Uploaded"
+                  value={
+                    previewDocument.uploaded_at
+                      ? formatDate(previewDocument.uploaded_at)
+                      : "Not uploaded"
+                  }
+                />
+                <DetailRow
+                  label="Expiry Date"
+                  value={
+                    previewDocument.expiry_date
+                      ? formatDate(previewDocument.expiry_date)
+                      : "—"
+                  }
+                />
+              </div>
+
+              {previewDocument.file && (
+                <div className="border-t pt-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">
+                    File Preview
+                  </p>
+
+                  {previewDocument.file
+                    .toLowerCase()
+                    .endsWith(".pdf") ? (
+                    <iframe
+                      src={previewDocument.file}
+                      className="w-full h-96 border rounded"
+                      title="Document Preview"
+                    />
+                  ) : (
+                    <img
+                      src={previewDocument.file}
+                      alt="Document"
+                      className="max-w-full max-h-96 mx-auto"
+                    />
+                  )}
+
+                  <div className="mt-4 flex gap-3">
+                    <a
+                      href={previewDocument.file}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 text-center bg-[#1a8f70] text-white px-4 py-2 rounded-md"
+                    >
+                      Open in New Tab
+                    </a>
+                    <a
+                      href={previewDocument.file}
+                      download
+                      className="flex-1 text-center border px-4 py-2 rounded-md"
+                    >
+                      Download
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -254,7 +316,7 @@ export default function VendorDetails() {
 /* ========= HELPERS ========= */
 
 function InfoCard({ title, value, color = "gray" }) {
-  const colorClasses = {
+  const colors = {
     green: "text-green-600",
     yellow: "text-yellow-600",
     orange: "text-orange-600",
@@ -265,7 +327,7 @@ function InfoCard({ title, value, color = "gray" }) {
   return (
     <div className="bg-white border rounded-lg p-4">
       <p className="text-sm text-gray-600 mb-1">{title}</p>
-      <p className={`text-2xl font-bold ${colorClasses[color]}`}>
+      <p className={`text-2xl font-bold ${colors[color]}`}>
         {value}
       </p>
     </div>

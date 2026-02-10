@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import api from "../../../services/api";
@@ -6,6 +6,7 @@ import api from "../../../services/api";
 export default function AddVendor() {
   const navigate = useNavigate();
 
+  /* -------------------- State -------------------- */
   const [loading, setLoading] = useState(false);
   const [industries, setIndustries] = useState([]);
   const [loadingIndustries, setLoadingIndustries] = useState(true);
@@ -15,99 +16,116 @@ export default function AddVendor() {
     industry: "",
     country: "",
     contact_email: "",
-    send_emails: false,
   });
 
+  const [showEmailConfirmation, setShowEmailConfirmation] = useState(false);
+  const [createdVendorId, setCreatedVendorId] = useState(null);
+
+  /* -------------------- Effects -------------------- */
   useEffect(() => {
     fetchIndustries();
   }, []);
 
+  /* -------------------- API Calls -------------------- */
   const fetchIndustries = async () => {
     try {
       const res = await api.get("/vendors/config/industries/");
-      console.log("Industries loaded:", res.data);
-      setIndustries(res.data);
-    } catch (err) {
+      setIndustries(res.data || []);
+    } catch (error) {
+      console.error("Failed to fetch industries", error);
       toast.error("Failed to load industries");
-      console.error(err);
     } finally {
       setLoadingIndustries(false);
     }
   };
 
+  /* -------------------- Handlers -------------------- */
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const validateForm = () => {
+    if (!formData.name.trim()) {
+      toast.error("Vendor name is required");
+      return false;
+    }
+    if (!formData.industry) {
+      toast.error("Please select an industry");
+      return false;
+    }
+    if (!formData.country.trim()) {
+      toast.error("Country is required");
+      return false;
+    }
+    if (!formData.contact_email.trim()) {
+      toast.error("Contact email is required");
+      return false;
+    }
+    return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validate
-    if (!formData.name.trim()) {
-      toast.error("Vendor name is required");
-      return;
-    }
-
-    if (!formData.industry) {
-      toast.error("Please select an industry");
-      return;
-    }
-
-    if (!formData.country.trim()) {
-      toast.error("Country is required");
-      return;
-    }
-
-    if (!formData.contact_email.trim()) {
-      toast.error("Contact email is required");
-      return;
-    }
-
-    console.log("Submitting data:", formData);
+    if (!validateForm()) return;
 
     setLoading(true);
 
     try {
-      const response = await api.post("/vendors/", formData);
-      console.log("Success:", response.data);
-      
-      toast.success("Vendor created successfully!");
-      navigate("/officer/vendors");
-    } catch (err) {
-      console.error("Full error:", err);
-      console.error("Error response:", err.response);
-      console.error("Error data:", err.response?.data);
-
-      let errorMessage = "Failed to create vendor";
-
-      if (err.response?.data) {
-        const data = err.response.data;
-
-        if (typeof data === "object") {
-          const errors = Object.entries(data)
-            .map(([field, messages]) => {
-              const msgArray = Array.isArray(messages) ? messages : [messages];
-              return `${field}: ${msgArray.join(", ")}`;
-            })
-            .join("; ");
-          errorMessage = errors || errorMessage;
-        } else if (typeof data === "string") {
-          errorMessage = data;
-        }
-      }
-
-      toast.error(errorMessage);
+      const res = await api.post("/vendors/", formData);
+      setCreatedVendorId(res.data.id);
+      setShowEmailConfirmation(true);
+      toast.success("Vendor created successfully");
+    } catch (error) {
+      handleApiError(error);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSendEmail = async () => {
+    if (!createdVendorId) return;
+
+    try {
+      await api.post("/vendors/send-emails/", {
+        vendor_ids: [createdVendorId],
+      });
+      toast.success("Document request email sent");
+      navigate("/officer/vendors");
+    } catch (error) {
+      console.error("Email send failed", error);
+      toast.error("Failed to send email");
+    }
+  };
+
+  const handleSkipEmail = () => {
+    navigate("/officer/vendors");
+  };
+
+  /* -------------------- Utils -------------------- */
+  const handleApiError = (error) => {
+    console.error("API error:", error);
+
+    let message = "Something went wrong";
+
+    if (error.response?.data) {
+      const data = error.response.data;
+      if (typeof data === "object") {
+        message = Object.entries(data)
+          .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(", ") : value}`)
+          .join(" | ");
+      } else {
+        message = data;
+      }
+    }
+
+    toast.error(message);
+  };
+
+  /* -------------------- Render -------------------- */
   return (
     <div className="p-8">
+      {/* Header */}
       <div className="mb-8">
         <button
           onClick={() => navigate("/officer/vendors")}
@@ -119,6 +137,7 @@ export default function AddVendor() {
         <p className="text-gray-600 mt-1">Add a new compliance vendor</p>
       </div>
 
+      {/* Form */}
       <div className="max-w-2xl bg-white rounded-xl shadow-sm p-8">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Vendor Name */}
@@ -129,12 +148,10 @@ export default function AddVendor() {
             <input
               type="text"
               name="name"
-              required
               value={formData.name}
               onChange={handleChange}
-              placeholder="Enter vendor name"
               disabled={loading}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1a8f70] outline-none disabled:opacity-50"
+              className="w-full px-4 py-2 border rounded-md"
             />
           </div>
 
@@ -143,35 +160,24 @@ export default function AddVendor() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Industry <span className="text-red-500">*</span>
             </label>
+
             {loadingIndustries ? (
-              <div className="text-sm text-gray-500">Loading industries...</div>
-            ) : industries.length === 0 ? (
-              <div className="text-sm text-red-500">
-                No industries available. Please create industries first.
-              </div>
+              <p className="text-sm text-gray-500">Loading industries...</p>
             ) : (
-              <>
-                <select
-                  name="industry"
-                  required
-                  value={formData.industry}
-                  onChange={handleChange}
-                  disabled={loading}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1a8f70] outline-none disabled:opacity-50"
-                >
-                  <option value="">Select Industry</option>
-                  {industries.map((industry) => (
-                    <option key={industry.id} value={industry.id}>
-                      {industry.name}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  {formData.industry
-                    ? `Selected: ${industries.find((i) => i.id === formData.industry)?.name}`
-                    : `Available industries: ${industries.length}`}
-                </p>
-              </>
+              <select
+                name="industry"
+                value={formData.industry}
+                onChange={handleChange}
+                disabled={loading}
+                className="w-full px-4 py-2 border rounded-md"
+              >
+                <option value="">Select industry</option>
+                {industries.map((industry) => (
+                  <option key={industry.id} value={industry.id}>
+                    {industry.name}
+                  </option>
+                ))}
+              </select>
             )}
           </div>
 
@@ -183,12 +189,10 @@ export default function AddVendor() {
             <input
               type="text"
               name="country"
-              required
               value={formData.country}
               onChange={handleChange}
-              placeholder="e.g., India, United States"
               disabled={loading}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1a8f70] outline-none disabled:opacity-50"
+              className="w-full px-4 py-2 border rounded-md"
             />
           </div>
 
@@ -200,53 +204,62 @@ export default function AddVendor() {
             <input
               type="email"
               name="contact_email"
-              required
               value={formData.contact_email}
               onChange={handleChange}
-              placeholder="vendor@company.com"
               disabled={loading}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#1a8f70] outline-none disabled:opacity-50"
+              className="w-full px-4 py-2 border rounded-md"
             />
-            <label className="flex items-center">
-            <input
-              type="checkbox"
-              checked={formData.send_emails}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  send_emails: e.target.checked,
-                }))
-              }
-              className="rounded border-gray-300"
-            />
-            <span className="ml-2 text-sm text-gray-700">
-              Send document request email to vendor
-            </span>
-          </label>
-
           </div>
 
           {/* Buttons */}
-          <div className="pt-4 grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 pt-4">
             <button
               type="button"
               onClick={() => navigate("/officer/vendors")}
-              disabled={loading}
-              className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+              className="border px-4 py-2 rounded-md"
             >
               Cancel
             </button>
-
             <button
               type="submit"
-              disabled={loading || loadingIndustries || industries.length === 0}
-              className="bg-[#1a8f70] text-white px-4 py-2 rounded-md hover:bg-[#12654e] disabled:opacity-60"
+              disabled={loading || loadingIndustries}
+              className="bg-[#1a8f70] text-white px-4 py-2 rounded-md"
             >
               {loading ? "Creating..." : "Save Vendor"}
             </button>
           </div>
         </form>
       </div>
+
+      {/* Email Confirmation Modal */}
+      {showEmailConfirmation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full">
+            <h3 className="text-xl font-bold mb-4">
+              Send Document Request Email?
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Send compliance document instructions to{" "}
+              <strong>{formData.contact_email}</strong>?
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleSkipEmail}
+                className="flex-1 border px-4 py-2 rounded-md"
+              >
+                Skip
+              </button>
+              <button
+                onClick={handleSendEmail}
+                className="flex-1 bg-[#1a8f70] text-white px-4 py-2 rounded-md"
+              >
+                Send Email
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
