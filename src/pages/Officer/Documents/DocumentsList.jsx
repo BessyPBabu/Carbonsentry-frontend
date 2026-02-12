@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import api from "../../../services/api";
 import { getDocumentBadgeClass, formatDate } from "../../../services/constants";
 import Pagination from "../../../components/Layout/Pagination";
+
+import ValidationStatusBadge from "../../../components/Validation/ValidationStatusBadge";
+import { validationService } from "../../../services/validationService";
 
 export default function DocumentsList() {
   const navigate = useNavigate();
@@ -73,6 +76,17 @@ export default function DocumentsList() {
     }
   };
 
+  const handleTriggerValidation = async (documentId) => {
+    try {
+      await validationService.triggerValidation(documentId);
+      toast.success("Validation started successfully");
+      fetchDocuments();
+    } catch (error) {
+      console.error("Validation trigger failed", error);
+      toast.error("Failed to start validation");
+    }
+  };
+
   const getStatusDisplay = (status) => {
     const displayMap = {
       pending: "Pending Upload",
@@ -103,7 +117,6 @@ export default function DocumentsList() {
 
   return (
     <div className="p-8">
-      {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">Documents</h1>
         <p className="text-gray-600 mt-1">
@@ -111,7 +124,6 @@ export default function DocumentsList() {
         </p>
       </div>
 
-      {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow mb-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <input
@@ -167,7 +179,6 @@ export default function DocumentsList() {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         <StatCard title="Total Documents" value={stats.total} />
         <StatCard title="Pending Upload" value={stats.pending} color="yellow" />
@@ -175,7 +186,6 @@ export default function DocumentsList() {
         <StatCard title="Flagged" value={stats.flagged} color="red" />
       </div>
 
-      {/* Table */}
       {loading ? (
         <div className="bg-white p-12 text-center rounded-lg shadow">
           Loading documents...
@@ -190,24 +200,14 @@ export default function DocumentsList() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left font-semibold w-1/6">
-                    Vendor
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold w-1/6">
-                    Document Type
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold w-1/6">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold w-1/6">
-                    Expiry Date
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold w-1/6">
-                    Uploaded
-                  </th>
-                  <th className="px-4 py-3 text-center font-semibold w-1/6">
-                    File
-                  </th>
+                  <th className="px-4 py-3 text-left font-semibold">Vendor</th>
+                  <th className="px-4 py-3 text-left font-semibold">Document Type</th>
+                  <th className="px-4 py-3 text-left font-semibold">Status</th>
+                  <th className="px-4 py-3 text-left font-semibold">Validation</th>
+                  <th className="px-4 py-3 text-left font-semibold">Confidence</th>
+                  <th className="px-4 py-3 text-left font-semibold">Expiry Date</th>
+                  <th className="px-4 py-3 text-left font-semibold">Uploaded</th>
+                  <th className="px-4 py-3 text-center font-semibold">Actions</th>
                 </tr>
               </thead>
 
@@ -217,9 +217,11 @@ export default function DocumentsList() {
                     <td className="px-4 py-3 font-medium">
                       {doc.vendor?.name || "—"}
                     </td>
+
                     <td className="px-4 py-3">
                       {doc.document_type || "—"}
                     </td>
+
                     <td className="px-4 py-3">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${getDocumentBadgeClass(
@@ -229,6 +231,30 @@ export default function DocumentsList() {
                         {getStatusDisplay(doc.status)}
                       </span>
                     </td>
+
+                    <td className="px-4 py-3">
+                      {doc.validation ? (
+                        <ValidationStatusBadge
+                          status={doc.validation.status}
+                          currentStep={doc.validation.current_step}
+                        />
+                      ) : (
+                        <span className="text-gray-400 text-sm">
+                          Not validated
+                        </span>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-3">
+                      {doc.validation?.overall_confidence ? (
+                        <ConfidenceBadge
+                          confidence={doc.validation.overall_confidence}
+                        />
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </td>
+
                     <td className="px-4 py-3">
                       {doc.expiry_date ? (
                         <span
@@ -244,23 +270,30 @@ export default function DocumentsList() {
                         "—"
                       )}
                     </td>
+
                     <td className="px-4 py-3">
                       {doc.uploaded_at
                         ? formatDate(doc.uploaded_at)
                         : "Not uploaded"}
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      {doc.file ? (
-                        <a
-                          href={doc.file}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[#1a8f70] hover:underline font-medium"
+
+                    <td className="px-4 py-3 text-center text-sm">
+                      {!doc.validation && doc.status === "uploaded" && (
+                        <button
+                          onClick={() => handleTriggerValidation(doc.id)}
+                          className="text-emerald-600 hover:text-emerald-700 font-medium"
                         >
-                          View
-                        </a>
-                      ) : (
-                        <span className="text-gray-400">—</span>
+                          Validate
+                        </button>
+                      )}
+
+                      {doc.validation && (
+                        <Link
+                          to={`/officer/validation/${doc.validation.id}`}
+                          className="text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                          View Details
+                        </Link>
                       )}
                     </td>
                   </tr>
@@ -280,7 +313,6 @@ export default function DocumentsList() {
   );
 }
 
-
 function StatCard({ title, value, color = "gray" }) {
   const colors = {
     gray: "text-gray-900",
@@ -296,5 +328,19 @@ function StatCard({ title, value, color = "gray" }) {
         {value}
       </div>
     </div>
+  );
+}
+
+function ConfidenceBadge({ confidence }) {
+  let color = "text-gray-600";
+
+  if (confidence >= 80) color = "text-green-600";
+  else if (confidence >= 50) color = "text-yellow-600";
+  else color = "text-red-600";
+
+  return (
+    <span className={`font-medium ${color}`}>
+      {confidence}%
+    </span>
   );
 }

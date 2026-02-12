@@ -27,6 +27,11 @@ import VendorDetails from "./pages/Officer/Vendors/VendorDetails";
 import DocumentsList from "./pages/Officer/Documents/DocumentsList";
 import ManualUpload from "./pages/Officer/Documents/ManualUpload";
 
+import AIReviewQueue from "./pages/Validation/AIReviewQueue";
+import VendorRiskList from "./pages/Validation/VendorRiskList";
+import VendorRiskAnalysis from "./pages/Validation/VendorRiskAnalysis";
+
+
 import VendorUpload from "./pages/Public/VendorUpload";
 
 import ViewerDashboard from "./pages/Viewer/Dashboard";
@@ -62,7 +67,8 @@ function App() {
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="vendors" element={<VendorsList />} />
 
-              <Route path="risk-analysis" element={<ComingSoon title="Risk Analysis" />} />
+              <Route path="risk-analysis" element={<VendorRiskList />} />
+              <Route path="risk-analysis/:vendorId" element={<VendorRiskAnalysis />} />
               <Route path="reports" element={<ComingSoon title="Reports" />} />
               <Route path="audit-logs" element={<ComingSoon title="Audit Logs" />} />
               
@@ -92,8 +98,9 @@ function App() {
               <Route index element={<DocumentsList />} />
               <Route path="manual-upload" element={<ManualUpload />} />
             </Route>
-              <Route path="ai-review-queue" element={<ComingSoon title="AI Review Queue" />} />
-              <Route path="risk-analysis" element={<ComingSoon title="Risk Analysis" />} />
+              <Route path="ai-review-queue" element={<AIReviewQueue />} />
+              <Route path="risk-analysis" element={<VendorRiskList />} />
+              <Route path="risk-analysis/:vendorId" element={<VendorRiskAnalysis />} />
               <Route path="reports" element={<ComingSoon title="Reports" />} />
               <Route path="audit-logs" element={<ComingSoon title="Audit Logs" />} />
             </Route>

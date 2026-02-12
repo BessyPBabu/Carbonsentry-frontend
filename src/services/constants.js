@@ -17,13 +17,6 @@ export const COMPLIANCE_STATUS = {
   EXPIRED: 'expired'
 };
 
-export const RISK_LEVELS = {
-  LOW: 'low',
-  MEDIUM: 'medium',
-  HIGH: 'high',
-  CRITICAL: 'critical'
-};
-
 export const DOCUMENT_STATUS = {
   PENDING: 'pending',
   UPLOADED: 'uploaded',
@@ -137,3 +130,28 @@ export const getDocumentBadgeClass = (status) => {
   return classes[status?.toLowerCase()] || 'bg-gray-100 text-gray-800';
 };
 
+export const RISK_LEVELS = {
+  LOW: 'low',
+  MEDIUM: 'medium',
+  HIGH: 'high',
+  CRITICAL: 'critical'
+};
+
+export const RISK_COLORS = {
+  low: { bg: 'bg-green-100', text: 'text-green-800', label: 'Low' },
+  medium: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Medium' },
+  high: { bg: 'bg-orange-100', text: 'text-orange-800', label: 'High' },
+  critical: { bg: 'bg-red-100', text: 'text-red-800', label: 'Critical' }
+};
+
+export const REVIEW_PRIORITIES = {
+  HIGH: 'high',
+  MEDIUM: 'medium',
+  LOW: 'low'
+};
+
+export const REVIEW_STATUS = {
+  PENDING: 'pending',
+  IN_PROGRESS: 'in_progress',
+  RESOLVED: 'resolved'
+};

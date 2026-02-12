@@ -4,19 +4,16 @@ import { toast } from "react-toastify";
 import api from "../../../services/api";
 import { useAuth } from "../../../context/AuthContext";
 
-
 export default function VendorsList() {
   const navigate = useNavigate();
+  const { role } = useAuth();
 
   const [vendors, setVendors] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  const { role } = useAuth();
-
   const isReadOnly = role === "admin" || role === "viewer";
-
 
   const [industries, setIndustries] = useState([]);
   const [filters, setFilters] = useState({
@@ -43,6 +40,7 @@ export default function VendorsList() {
     }
   };
 
+  // UPDATED FETCH LOGIC
   const fetchVendors = async () => {
     setLoading(true);
     try {
@@ -57,10 +55,12 @@ export default function VendorsList() {
 
       const res = await api.get(`/vendors/?${params}`);
 
+      // Handle paginated response
       if (res.data.results) {
         setVendors(res.data.results);
-        setTotalPages(Math.ceil(res.data.count / 50));
+        setTotalPages(res.data.total_pages || 1);
       } else {
+        // Fallback for non-paginated response
         setVendors(res.data);
         setTotalPages(1);
       }
@@ -130,6 +130,7 @@ export default function VendorsList() {
             Manage compliance vendors and their documents
           </p>
         </div>
+
         {!isReadOnly && (
           <div className="flex gap-3">
             <button
@@ -138,6 +139,7 @@ export default function VendorsList() {
             >
               + Add Vendor
             </button>
+
             <button
               onClick={() => navigate("/officer/vendors/bulk-upload")}
               className="bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800"
@@ -146,7 +148,6 @@ export default function VendorsList() {
             </button>
           </div>
         )}
-
       </div>
 
       {/* Filters */}
@@ -215,12 +216,14 @@ export default function VendorsList() {
       {vendors.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg shadow">
           <p className="text-gray-600">No vendors found</p>
-          <button
-            onClick={() => navigate("/officer/vendors/add")}
-            className="mt-4 text-[#1a8f70] hover:underline"
-          >
-            Add your first vendor
-          </button>
+          {!isReadOnly && (
+            <button
+              onClick={() => navigate("/officer/vendors/add")}
+              className="mt-4 text-[#1a8f70] hover:underline"
+            >
+              Add your first vendor
+            </button>
+          )}
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -247,19 +250,24 @@ export default function VendorsList() {
                     Actions
                   </th>
                 )}
-
               </tr>
             </thead>
+
             <tbody className="divide-y">
               {vendors.map((vendor) => (
                 <tr key={vendor.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium text-gray-900">
                     {vendor.name}
                   </td>
+
                   <td className="px-4 py-3 text-gray-600">
                     {vendor.industry}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{vendor.country}</td>
+
+                  <td className="px-4 py-3 text-gray-600">
+                    {vendor.country}
+                  </td>
+
                   <td className="px-4 py-3">
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(
@@ -269,6 +277,7 @@ export default function VendorsList() {
                       {getStatusDisplay(vendor.compliance_status)}
                     </span>
                   </td>
+
                   <td className="px-4 py-3">
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskBadge(
@@ -278,6 +287,7 @@ export default function VendorsList() {
                       {getRiskDisplay(vendor.risk_level)}
                     </span>
                   </td>
+
                   {!isReadOnly && (
                     <td className="px-4 py-3">
                       <Link
@@ -288,13 +298,11 @@ export default function VendorsList() {
                       </Link>
                     </td>
                   )}
-
                 </tr>
               ))}
             </tbody>
           </table>
 
-          {/* Pagination */}
           {totalPages > 1 && (
             <div className="px-4 py-3 border-t bg-gray-50 flex justify-between items-center">
               <div className="text-sm text-gray-600">
@@ -304,14 +312,14 @@ export default function VendorsList() {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="px-3 py-1 border rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-1 border rounded hover:bg-white disabled:opacity-50"
                 >
                   Previous
                 </button>
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="px-3 py-1 border rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-1 border rounded hover:bg-white disabled:opacity-50"
                 >
                   Next
                 </button>
