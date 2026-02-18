@@ -3,8 +3,7 @@ import { useNavigate, useLocation, Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import api from "../../../services/api";
 import { getDocumentBadgeClass, formatDate } from "../../../services/constants";
-import Pagination from "../../../components/Layout/Pagination";
-
+import Pagination from '../../../components/Common/Pagination';
 import ValidationStatusBadge from "../../../components/Validation/ValidationStatusBadge";
 import { validationService } from "../../../services/validationService";
 
@@ -108,6 +107,51 @@ export default function DocumentsList() {
     setPage(1);
   };
 
+  const handleView = async (doc) => {
+    try {
+      const response = await api.get(
+        `/vendors/documents/${doc.id}/file/`,
+        { responseType: "blob" }
+      );
+
+      const blob = new Blob([response.data], {
+        type: response.headers["content-type"],
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, "_blank");
+
+    } catch (error) {
+      console.error("View failed", error);
+      toast.error("Failed to open document");
+    }
+  };
+
+  const handleDownload = async (doc) => {
+    try {
+      const response = await api.get(
+        `/vendors/documents/${doc.id}/download/`,
+        { responseType: "blob" }
+      );
+
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = doc.document_type || "document";
+      document.body.appendChild(link);
+      link.click();
+
+      window.URL.revokeObjectURL(url);
+
+    } catch (error) {
+      console.error("Download failed", error);
+      toast.error("Failed to download document");
+    }
+  };
+
+
   const stats = {
     total: totalCount,
     pending: documents.filter((d) => d.status === "pending").length,
@@ -124,6 +168,7 @@ export default function DocumentsList() {
         </p>
       </div>
 
+      {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow mb-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <input
@@ -179,6 +224,7 @@ export default function DocumentsList() {
         </div>
       </div>
 
+      {/* Stats */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         <StatCard title="Total Documents" value={stats.total} />
         <StatCard title="Pending Upload" value={stats.pending} color="yellow" />
@@ -186,6 +232,7 @@ export default function DocumentsList() {
         <StatCard title="Flagged" value={stats.flagged} color="red" />
       </div>
 
+      {/* Table */}
       {loading ? (
         <div className="bg-white p-12 text-center rounded-lg shadow">
           Loading documents...
@@ -215,7 +262,7 @@ export default function DocumentsList() {
                 {documents.map((doc) => (
                   <tr key={doc.id} className="border-t hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium">
-                      {doc.vendor?.name || "—"}
+                      {doc.vendor_name || "—"}
                     </td>
 
                     <td className="px-4 py-3">
@@ -256,19 +303,9 @@ export default function DocumentsList() {
                     </td>
 
                     <td className="px-4 py-3">
-                      {doc.expiry_date ? (
-                        <span
-                          className={
-                            new Date(doc.expiry_date) < new Date()
-                              ? "text-red-600 font-medium"
-                              : ""
-                          }
-                        >
-                          {formatDate(doc.expiry_date)}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
+                      {doc.expiry_date
+                        ? formatDate(doc.expiry_date)
+                        : "—"}
                     </td>
 
                     <td className="px-4 py-3">
@@ -277,25 +314,48 @@ export default function DocumentsList() {
                         : "Not uploaded"}
                     </td>
 
+                    {/* ✅ UPDATED ACTION COLUMN */}
                     <td className="px-4 py-3 text-center text-sm">
-                      {!doc.validation && doc.status === "uploaded" && (
-                        <button
-                          onClick={() => handleTriggerValidation(doc.id)}
-                          className="text-emerald-600 hover:text-emerald-700 font-medium"
-                        >
-                          Validate
-                        </button>
-                      )}
+                      <div className="flex gap-3 justify-center flex-wrap">
 
-                      {doc.validation && (
-                        <Link
-                          to={`/officer/validation/${doc.validation.id}`}
-                          className="text-blue-600 hover:text-blue-700 font-medium"
-                        >
-                          View Details
-                        </Link>
-                      )}
+                        {doc.file_url && (
+                          <button
+                            onClick={() => handleView(doc)}
+                            className="text-blue-600 hover:text-blue-700 font-medium"
+                          >
+                            View
+                          </button>
+                        )}
+
+                        {doc.download_url && (
+                          <button
+                            onClick={() => handleDownload(doc)}
+                            className="text-green-600 hover:text-green-700 font-medium"
+                          >
+                            Download
+                          </button>
+                        )}
+
+                        {!doc.validation && doc.status === "uploaded" && (
+                          <button
+                            onClick={() => handleTriggerValidation(doc.id)}
+                            className="text-emerald-600 hover:text-emerald-700 font-medium"
+                          >
+                            Validate
+                          </button>
+                        )}
+
+                        {doc.validation && (
+                          <Link
+                            to={`/officer/validation/${doc.validation.id}`}
+                            className="text-purple-600 hover:text-purple-700 font-medium"
+                          >
+                            Validation
+                          </Link>
+                        )}
+                      </div>
                     </td>
+
                   </tr>
                 ))}
               </tbody>
@@ -312,6 +372,8 @@ export default function DocumentsList() {
     </div>
   );
 }
+
+/* ===== Helper Components ===== */
 
 function StatCard({ title, value, color = "gray" }) {
   const colors = {

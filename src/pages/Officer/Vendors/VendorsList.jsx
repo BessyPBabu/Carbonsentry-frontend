@@ -11,6 +11,7 @@ export default function VendorsList() {
   const [vendors, setVendors] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const isReadOnly = role === "admin" || role === "viewer";
@@ -40,7 +41,6 @@ export default function VendorsList() {
     }
   };
 
-  // UPDATED FETCH LOGIC
   const fetchVendors = async () => {
     setLoading(true);
     try {
@@ -55,13 +55,14 @@ export default function VendorsList() {
 
       const res = await api.get(`/vendors/?${params}`);
 
-      // Handle paginated response
+      // ✅ FIXED: Properly handle paginated response
       if (res.data.results) {
         setVendors(res.data.results);
-        setTotalPages(res.data.total_pages || 1);
+        setTotalCount(res.data.count);
+        setTotalPages(res.data.total_pages || Math.ceil(res.data.count / 50));
       } else {
-        // Fallback for non-paginated response
         setVendors(res.data);
+        setTotalCount(res.data.length);
         setTotalPages(1);
       }
     } catch (error) {
@@ -70,6 +71,16 @@ export default function VendorsList() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleClearFilters = () => {
+    setFilters({
+      search: "",
+      industry: "",
+      compliance_status: "",
+      risk_level: "",
+    });
+    setPage(1);
   };
 
   const getStatusBadge = (status) => {
@@ -90,26 +101,6 @@ export default function VendorsList() {
       critical: "bg-red-100 text-red-800",
     };
     return badges[risk] || "bg-gray-100 text-gray-800";
-  };
-
-  const getStatusDisplay = (status) => {
-    const display = {
-      pending: "Pending",
-      compliant: "Compliant",
-      non_compliant: "Non-Compliant",
-      expired: "Expired",
-    };
-    return display[status] || status;
-  };
-
-  const getRiskDisplay = (risk) => {
-    const display = {
-      low: "Low",
-      medium: "Medium",
-      high: "High",
-      critical: "Critical",
-    };
-    return display[risk] || risk;
   };
 
   if (loading && vendors.length === 0) {
@@ -152,7 +143,7 @@ export default function VendorsList() {
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow mb-6">
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <input
             type="text"
             placeholder="Search vendors..."
@@ -188,7 +179,7 @@ export default function VendorsList() {
             }}
             className="border rounded-lg px-4 py-2"
           >
-            <option value="">All Compliance Status</option>
+            <option value="">All Compliance</option>
             <option value="pending">Pending</option>
             <option value="compliant">Compliant</option>
             <option value="non_compliant">Non-Compliant</option>
@@ -203,12 +194,19 @@ export default function VendorsList() {
             }}
             className="border rounded-lg px-4 py-2"
           >
-            <option value="">All Risk Levels</option>
+            <option value="">All Risk</option>
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
             <option value="critical">Critical</option>
           </select>
+
+          <button
+            onClick={handleClearFilters}
+            className="border border-gray-300 rounded-lg px-4 py-2 hover:bg-gray-50"
+          >
+            Clear Filters
+          </button>
         </div>
       </div>
 
@@ -230,25 +228,13 @@ export default function VendorsList() {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Industry
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Country
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Compliance
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                  Risk
-                </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">Name</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">Industry</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">Country</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">Compliance</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">Risk</th>
                 {!isReadOnly && (
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                    Actions
-                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold">Actions</th>
                 )}
               </tr>
             </thead>
@@ -256,38 +242,27 @@ export default function VendorsList() {
             <tbody className="divide-y">
               {vendors.map((vendor) => (
                 <tr key={vendor.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-900">
-                    {vendor.name}
-                  </td>
-
-                  <td className="px-4 py-3 text-gray-600">
-                    {vendor.industry}
-                  </td>
-
-                  <td className="px-4 py-3 text-gray-600">
-                    {vendor.country}
-                  </td>
-
+                  <td className="px-4 py-3 font-medium">{vendor.name}</td>
+                  <td className="px-4 py-3">{vendor.industry}</td>
+                  <td className="px-4 py-3">{vendor.country}</td>
                   <td className="px-4 py-3">
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(
                         vendor.compliance_status
                       )}`}
                     >
-                      {getStatusDisplay(vendor.compliance_status)}
+                      {vendor.compliance_status}
                     </span>
                   </td>
-
                   <td className="px-4 py-3">
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskBadge(
                         vendor.risk_level
                       )}`}
                     >
-                      {getRiskDisplay(vendor.risk_level)}
+                      {vendor.risk_level}
                     </span>
                   </td>
-
                   {!isReadOnly && (
                     <td className="px-4 py-3">
                       <Link
@@ -303,23 +278,24 @@ export default function VendorsList() {
             </tbody>
           </table>
 
+          {/* ✅ FIXED: Pagination */}
           {totalPages > 1 && (
             <div className="px-4 py-3 border-t bg-gray-50 flex justify-between items-center">
               <div className="text-sm text-gray-600">
-                Page {page} of {totalPages}
+                Page {page} of {totalPages} ({totalCount} total)
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="px-3 py-1 border rounded hover:bg-white disabled:opacity-50"
+                  className="px-3 py-1 border rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="px-3 py-1 border rounded hover:bg-white disabled:opacity-50"
+                  className="px-3 py-1 border rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>

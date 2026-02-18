@@ -66,12 +66,10 @@ function App() {
             >
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="vendors" element={<VendorsList />} />
-
               <Route path="risk-analysis" element={<VendorRiskList />} />
               <Route path="risk-analysis/:vendorId" element={<VendorRiskAnalysis />} />
               <Route path="reports" element={<ComingSoon title="Reports" />} />
               <Route path="audit-logs" element={<ComingSoon title="Audit Logs" />} />
-              
               <Route path="user-management" element={<UserManagement />} />
               <Route path="user-management/add" element={<AddUser />} />
               <Route path="user-management/edit/:id" element={<EditUser />} />

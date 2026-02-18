@@ -1,67 +1,78 @@
 import React from 'react';
 
-const Pagination = ({ currentPage, totalPages, onPageChange }) => {
-  const pages = [];
+
+const Pagination = ({
   
-  // Show first page, current-1, current, current+1, last page
-  if (totalPages <= 5) {
-    for (let i = 1; i <= totalPages; i++) {
-      pages.push(i);
-    }
+  currentPage,
+  page,
+  totalPages = 1,
+  onPageChange,
+}) => {
+  const activePage = currentPage ?? page ?? 1;
+
+  if (!totalPages || totalPages <= 1) return null;
+
+  const pages = [];
+
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
   } else {
     pages.push(1);
-    if (currentPage > 3) pages.push('...');
-    
-    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
-      pages.push(i);
-    }
-    
-    if (currentPage < totalPages - 2) pages.push('...');
+
+    if (activePage > 3) pages.push('...');
+
+    const start = Math.max(2, activePage - 1);
+    const end = Math.min(totalPages - 1, activePage + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+
+    if (activePage < totalPages - 2) pages.push('...');
     pages.push(totalPages);
   }
 
+  const handleChange = (p) => {
+    if (p < 1 || p > totalPages || p === activePage) return;
+    onPageChange(p);
+  };
+
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center justify-center gap-1 py-3">
+      {/* Previous */}
       <button
-        onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage === 1}
-        className="px-3 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        onClick={() => handleChange(activePage - 1)}
+        disabled={activePage === 1}
+        className="px-3 py-1.5 border rounded-lg text-sm hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
       >
         &lt;
       </button>
 
-      {pages.map((page, idx) => (
-        page === '...' ? (
-          <span key={`ellipsis-${idx}`} className="px-2">...</span>
+      {/* Page numbers */}
+      {pages.map((p, idx) =>
+        p === '...' ? (
+          <span key={`ellipsis-${idx}`} className="px-2 text-gray-400 select-none">
+            …
+          </span>
         ) : (
           <button
-            key={page}
-            onClick={() => onPageChange(page)}
-            className={`px-4 py-2 border rounded-lg ${
-              currentPage === page 
-                ? 'bg-indigo-100 border-indigo-300 text-indigo-700' 
-                : 'hover:bg-gray-50'
+            key={p}
+            onClick={() => handleChange(p)}
+            className={`px-3 py-1.5 border rounded-lg text-sm transition-colors ${
+              activePage === p
+                ? 'bg-indigo-100 border-indigo-300 text-indigo-700 font-semibold'
+                : 'hover:bg-gray-50 text-gray-700'
             }`}
           >
-            {page}
+            {p}
           </button>
         )
-      ))}
+      )}
 
+      {/* Next */}
       <button
-        onClick={() => onPageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className="px-3 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        onClick={() => handleChange(activePage + 1)}
+        disabled={activePage === totalPages}
+        className="px-3 py-1.5 border rounded-lg text-sm hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
       >
         &gt;
-      </button>
-
-      <button
-        onClick={() => onPageChange(totalPages)}
-        disabled={currentPage === totalPages}
-        className="px-3 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        Next
       </button>
     </div>
   );

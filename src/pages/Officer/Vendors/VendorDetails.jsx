@@ -14,7 +14,6 @@ export default function VendorDetails() {
   const [vendor, setVendor] = useState(null);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [previewDocument, setPreviewDocument] = useState(null);
 
   useEffect(() => {
@@ -97,9 +96,11 @@ export default function VendorDetails() {
         >
           ← Back to Vendors
         </button>
+
         <h1 className="text-3xl font-bold text-gray-900">
           {vendor.name}
         </h1>
+
         <p className="text-gray-600 mt-1">
           {vendor.industry} • {vendor.country}
         </p>
@@ -118,6 +119,7 @@ export default function VendorDetails() {
               : "red"
           }
         />
+
         <InfoCard
           title="Risk Level"
           value={getRiskDisplay(vendor.risk_level)}
@@ -131,7 +133,9 @@ export default function VendorDetails() {
               : "red"
           }
         />
+
         <InfoCard title="Total Documents" value={documents.length} />
+
         <InfoCard
           title="Pending Documents"
           value={pendingDocs.length}
@@ -144,6 +148,7 @@ export default function VendorDetails() {
         <h2 className="text-xl font-semibold mb-4">
           Vendor Information
         </h2>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <DetailRow label="Contact Email" value={vendor.contact_email} />
           <DetailRow label="Country" value={vendor.country} />
@@ -155,7 +160,7 @@ export default function VendorDetails() {
         </div>
       </div>
 
-      {/* Documents */}
+      {/* Documents Section */}
       <div className="bg-white border rounded-lg p-6">
         <h2 className="text-xl font-semibold mb-4">
           Document Status
@@ -177,12 +182,14 @@ export default function VendorDetails() {
                   <th className="px-4 py-3 text-center">File</th>
                 </tr>
               </thead>
+
               <tbody>
                 {documents.map((doc) => (
                   <tr key={doc.id} className="border-t hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium">
                       {doc.document_type || "—"}
                     </td>
+
                     <td className="px-4 py-3">
                       <span
                         className={`px-2 py-1 rounded-full text-xs font-medium ${getDocumentBadgeClass(
@@ -192,16 +199,19 @@ export default function VendorDetails() {
                         {getStatusDisplay(doc.status)}
                       </span>
                     </td>
+
                     <td className="px-4 py-3">
                       {doc.expiry_date
                         ? formatDate(doc.expiry_date)
                         : "—"}
                     </td>
+
                     <td className="px-4 py-3">
                       {doc.uploaded_at
                         ? formatDate(doc.uploaded_at)
                         : "Not uploaded"}
                     </td>
+
                     <td className="px-4 py-3 text-center">
                       {doc.file ? (
                         <button
@@ -226,6 +236,7 @@ export default function VendorDetails() {
       {previewDocument && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-auto">
+            
             <div className="p-6 border-b flex justify-between items-center">
               <h3 className="text-xl font-bold">Document Details</h3>
               <button
@@ -264,45 +275,55 @@ export default function VendorDetails() {
                 />
               </div>
 
-              {previewDocument.file && (
+              {(previewDocument.file_url || previewDocument.file) ? (
                 <div className="border-t pt-4">
                   <p className="text-sm font-medium text-gray-700 mb-2">
                     File Preview
                   </p>
 
-                  {previewDocument.file
+                  {previewDocument.file_url
                     .toLowerCase()
                     .endsWith(".pdf") ? (
                     <iframe
-                      src={previewDocument.file}
+                      src={previewDocument.file_url}
                       className="w-full h-96 border rounded"
                       title="Document Preview"
                     />
-                  ) : (
+                  ) : previewDocument.file_url.match(
+                      /\.(jpg|jpeg|png|gif)$/i
+                    ) ? (
                     <img
-                      src={previewDocument.file}
+                      src={previewDocument.file_url}
                       alt="Document"
                       className="max-w-full max-h-96 mx-auto"
                     />
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      Preview not available for this file type
+                    </div>
                   )}
 
                   <div className="mt-4 flex gap-3">
                     <a
-                      href={previewDocument.file}
+                      href={previewDocument.file_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 text-center bg-[#1a8f70] text-white px-4 py-2 rounded-md"
+                      className="flex-1 text-center bg-[#1a8f70] text-white px-4 py-2 rounded-md hover:bg-[#12654e]"
                     >
                       Open in New Tab
                     </a>
+
                     <a
-                      href={previewDocument.file}
-                      download
-                      className="flex-1 text-center border px-4 py-2 rounded-md"
+                      href={previewDocument.download_url}
+                      className="flex-1 text-center border border-[#1a8f70] text-[#1a8f70] px-4 py-2 rounded-md hover:bg-gray-50"
                     >
                       Download
                     </a>
                   </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No file uploaded yet
                 </div>
               )}
             </div>
