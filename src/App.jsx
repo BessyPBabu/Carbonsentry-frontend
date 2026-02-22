@@ -26,17 +26,20 @@ import BulkUpload from "./pages/Officer/Vendors/BulkUpload";
 import VendorDetails from "./pages/Officer/Vendors/VendorDetails";
 import DocumentsList from "./pages/Officer/Documents/DocumentsList";
 import ManualUpload from "./pages/Officer/Documents/ManualUpload";
+import CommunicationPage from "./pages/Officer/Vendors/CommunicationPage";
+import AuditLogsPage from "./pages/Officer/AuditLogs/AuditLogsPage";
+
+import ReportsPage from "./pages/Reports/ReportsPage";
+import ReportPreview from "./pages/Reports/ReportPreview";
 
 import AIReviewQueue from "./pages/Validation/AIReviewQueue";
 import VendorRiskList from "./pages/Validation/VendorRiskList";
 import VendorRiskAnalysis from "./pages/Validation/VendorRiskAnalysis";
 
-
 import VendorUpload from "./pages/Public/VendorUpload";
-
 import ViewerDashboard from "./pages/Viewer/Dashboard";
 
-import ComingSoon from "./components/Common/ComingSoon";
+
 
 function App() {
   return (
@@ -68,8 +71,9 @@ function App() {
               <Route path="vendors" element={<VendorsList />} />
               <Route path="risk-analysis" element={<VendorRiskList />} />
               <Route path="risk-analysis/:vendorId" element={<VendorRiskAnalysis />} />
-              <Route path="reports" element={<ComingSoon title="Reports" />} />
-              <Route path="audit-logs" element={<ComingSoon title="Audit Logs" />} />
+              <Route path="reports" element={<ReportsPage />} />
+              <Route path="reports/:reportId" element={<ReportPreview />} />
+              <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="user-management" element={<UserManagement />} />
               <Route path="user-management/add" element={<AddUser />} />
               <Route path="user-management/edit/:id" element={<EditUser />} />
@@ -99,8 +103,15 @@ function App() {
               <Route path="ai-review-queue" element={<AIReviewQueue />} />
               <Route path="risk-analysis" element={<VendorRiskList />} />
               <Route path="risk-analysis/:vendorId" element={<VendorRiskAnalysis />} />
-              <Route path="reports" element={<ComingSoon title="Reports" />} />
-              <Route path="audit-logs" element={<ComingSoon title="Audit Logs" />} />
+              <Route path="reports" element={<ReportsPage />} />
+              <Route path="reports/:reportId" element={<ReportPreview />} />
+              <Route path="communication" element={<CommunicationPage />} />
+              <Route path="communication/:vendorId" element={<CommunicationPage />} />
+              <Route path="audit-logs" element={<AuditLogsPage />} />
+
+              
+          
+
             </Route>
 
             <Route
@@ -113,8 +124,10 @@ function App() {
             >
               <Route path="dashboard" element={<ViewerDashboard />} />
               <Route path="vendors" element={<VendorsList />} />
-              <Route path="risk-analysis" element={<ComingSoon title="Risk Analysis" />} />
-              <Route path="reports" element={<ComingSoon title="Reports" />} />
+              <Route path="risk-analysis" element={<VendorRiskList />} />
+              <Route path="risk-analysis/:vendorId" element={<VendorRiskAnalysis />} />
+              <Route path="reports" element={<ReportsPage />} />
+              <Route path="reports/:reportId" element={<ReportPreview />} />
             </Route>
 
 

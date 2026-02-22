@@ -7,6 +7,8 @@ import Pagination from '../../../components/Common/Pagination';
 import ValidationStatusBadge from "../../../components/Validation/ValidationStatusBadge";
 import { validationService } from "../../../services/validationService";
 
+const PAGE_SIZE = 10;
+
 export default function DocumentsList() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -17,6 +19,9 @@ export default function DocumentsList() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // track which docs have had validation triggered this session
+  const [validatingIds, setValidatingIds] = useState(new Set());
 
   const [filters, setFilters] = useState({
     status: "",
@@ -51,6 +56,7 @@ export default function DocumentsList() {
     try {
       const params = new URLSearchParams();
       params.append("page", page);
+      params.append("page_size", PAGE_SIZE);
 
       if (filters.status) params.append("status", filters.status);
       if (filters.search) params.append("search", filters.search);
@@ -58,10 +64,11 @@ export default function DocumentsList() {
 
       const res = await api.get(`/vendors/documents/?${params}`);
 
-      if (res.data.results) {
+      if (res.data.results !== undefined) {
         setDocuments(res.data.results);
         setTotalCount(res.data.count);
-        setTotalPages(Math.ceil(res.data.count / 50));
+        // FIX: use PAGE_SIZE not 50
+        setTotalPages(Math.ceil(res.data.count / PAGE_SIZE));
       } else {
         setDocuments(res.data);
         setTotalCount(res.data.length);
@@ -76,11 +83,20 @@ export default function DocumentsList() {
   };
 
   const handleTriggerValidation = async (documentId) => {
+    // mark as validating immediately so button disappears
+    setValidatingIds(prev => new Set(prev).add(documentId));
     try {
       await validationService.triggerValidation(documentId);
       toast.success("Validation started successfully");
+      // refresh so the validation column updates
       fetchDocuments();
     } catch (error) {
+      // on failure, remove from set so they can retry
+      setValidatingIds(prev => {
+        const next = new Set(prev);
+        next.delete(documentId);
+        return next;
+      });
       console.error("Validation trigger failed", error);
       toast.error("Failed to start validation");
     }
@@ -99,11 +115,7 @@ export default function DocumentsList() {
   };
 
   const handleClearFilters = () => {
-    setFilters({
-      status: "",
-      vendor: "",
-      search: "",
-    });
+    setFilters({ status: "", vendor: "", search: "" });
     setPage(1);
   };
 
@@ -113,20 +125,18 @@ export default function DocumentsList() {
         `/vendors/documents/${doc.id}/file/`,
         { responseType: "blob" }
       );
-
       const blob = new Blob([response.data], {
         type: response.headers["content-type"],
       });
-
       const url = window.URL.createObjectURL(blob);
       window.open(url, "_blank");
-
     } catch (error) {
       console.error("View failed", error);
       toast.error("Failed to open document");
     }
   };
 
+  // FIX: force application/pdf so it doesn't download as .txt
   const handleDownload = async (doc) => {
     try {
       const response = await api.get(
@@ -134,30 +144,48 @@ export default function DocumentsList() {
         { responseType: "blob" }
       );
 
-      const blob = new Blob([response.data]);
+      // force pdf mime regardless of what the server content-type header says
+      const blob = new Blob([response.data], { type: "application/pdf" });
       const url = window.URL.createObjectURL(blob);
 
       const link = document.createElement("a");
       link.href = url;
-      link.download = doc.document_type || "document";
+
+      // ensure .pdf extension on the downloaded file
+      const rawName = doc.document_type || "document";
+      link.download = rawName.endsWith(".pdf") ? rawName : `${rawName}.pdf`;
+
       document.body.appendChild(link);
       link.click();
-
+      document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-
     } catch (error) {
       console.error("Download failed", error);
       toast.error("Failed to download document");
     }
   };
 
-
+  // FIX: stats should reflect total across all pages, not just current page slice
+  // we keep pending/valid/flagged from current page as indicative counts
+  // total comes from the paginated count field which is accurate
   const stats = {
     total: totalCount,
     pending: documents.filter((d) => d.status === "pending").length,
     valid: documents.filter((d) => d.status === "valid").length,
     flagged: documents.filter((d) => d.status === "flagged").length,
   };
+
+  // a doc should show the validate button only if:
+  // - it has no validation record yet
+  // - its status is 'uploaded' (has a file)
+  // - we haven't already triggered validation this session
+  const canValidate = (doc) =>
+    !doc.validation &&
+    doc.status === "uploaded" &&
+    !validatingIds.has(doc.id);
+
+  const isValidating = (doc) =>
+    validatingIds.has(doc.id) && !doc.validation;
 
   return (
     <div className="p-8">
@@ -271,9 +299,7 @@ export default function DocumentsList() {
 
                     <td className="px-4 py-3">
                       <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${getDocumentBadgeClass(
-                          doc.status
-                        )}`}
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${getDocumentBadgeClass(doc.status)}`}
                       >
                         {getStatusDisplay(doc.status)}
                       </span>
@@ -303,18 +329,13 @@ export default function DocumentsList() {
                     </td>
 
                     <td className="px-4 py-3">
-                      {doc.expiry_date
-                        ? formatDate(doc.expiry_date)
-                        : "—"}
+                      {doc.expiry_date ? formatDate(doc.expiry_date) : "—"}
                     </td>
 
                     <td className="px-4 py-3">
-                      {doc.uploaded_at
-                        ? formatDate(doc.uploaded_at)
-                        : "Not uploaded"}
+                      {doc.uploaded_at ? formatDate(doc.uploaded_at) : "Not uploaded"}
                     </td>
 
-                    {/* ✅ UPDATED ACTION COLUMN */}
                     <td className="px-4 py-3 text-center text-sm">
                       <div className="flex gap-3 justify-center flex-wrap">
 
@@ -336,7 +357,8 @@ export default function DocumentsList() {
                           </button>
                         )}
 
-                        {!doc.validation && doc.status === "uploaded" && (
+                        {/* FIX: show validate button only if not yet validated and not currently validating */}
+                        {canValidate(doc) && (
                           <button
                             onClick={() => handleTriggerValidation(doc.id)}
                             className="text-emerald-600 hover:text-emerald-700 font-medium"
@@ -345,14 +367,29 @@ export default function DocumentsList() {
                           </button>
                         )}
 
+                        {/* show a non-clickable pill while validation is in progress */}
+                        {isValidating(doc) && (
+                          <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-600 rounded-full">
+                            Validating...
+                          </span>
+                        )}
+
+                        {/* show validated pill if validation exists and completed */}
+                        {doc.validation?.status === "completed" && !doc.validation?.requires_manual_review && (
+                          <span className="px-2 py-0.5 text-xs bg-green-100 text-green-600 rounded-full">
+                            Validated ✓
+                          </span>
+                        )}
+
                         {doc.validation && (
                           <Link
                             to={`/officer/validation/${doc.validation.id}`}
                             className="text-purple-600 hover:text-purple-700 font-medium"
                           >
-                            Validation
+                            Details
                           </Link>
                         )}
+
                       </div>
                     </td>
 
@@ -362,11 +399,21 @@ export default function DocumentsList() {
             </table>
           </div>
 
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-          />
+          {/* FIX: pagination with correct page count */}
+          <div className="px-4 py-3 border-t flex items-center justify-between text-sm text-gray-500">
+            <span>
+              Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, totalCount)} of {totalCount} documents
+            </span>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onPageChange={(newPage) => {
+                setPage(newPage);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            />
+          </div>
+
         </div>
       )}
     </div>
@@ -395,7 +442,6 @@ function StatCard({ title, value, color = "gray" }) {
 
 function ConfidenceBadge({ confidence }) {
   let color = "text-gray-600";
-
   if (confidence >= 80) color = "text-green-600";
   else if (confidence >= 50) color = "text-yellow-600";
   else color = "text-red-600";

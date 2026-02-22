@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
 import { riskService } from '../../services/riskService';
 import { validationService } from '../../services/validationService';
@@ -18,6 +19,15 @@ const VendorRiskAnalysis = () => {
   useEffect(() => {
     fetchAllData();
   }, [vendorId]);
+
+  const navigate = useNavigate();
+
+  <button
+    onClick={() => navigate(-1)}
+    className="mb-4 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800"
+>
+    ← Back to Risk Analysis
+  </button>
 
   const fetchAllData = async () => {
     try {

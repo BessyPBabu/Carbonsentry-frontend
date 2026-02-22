@@ -55,7 +55,6 @@ export default function VendorsList() {
 
       const res = await api.get(`/vendors/?${params}`);
 
-      // ✅ FIXED: Properly handle paginated response
       if (res.data.results) {
         setVendors(res.data.results);
         setTotalCount(res.data.count);
@@ -278,7 +277,7 @@ export default function VendorsList() {
             </tbody>
           </table>
 
-          {/* ✅ FIXED: Pagination */}
+          {/* Pagination */}
           {totalPages > 1 && (
             <div className="px-4 py-3 border-t bg-gray-50 flex justify-between items-center">
               <div className="text-sm text-gray-600">
