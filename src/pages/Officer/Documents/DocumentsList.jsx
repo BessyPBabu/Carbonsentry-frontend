@@ -381,14 +381,14 @@ export default function DocumentsList() {
                           </span>
                         )}
 
-                        {doc.validation && (
+                        {/* {doc.validation && (
                           <Link
                             to={`/officer/validation/${doc.validation.id}`}
                             className="text-purple-600 hover:text-purple-700 font-medium"
                           >
                             Details
                           </Link>
-                        )}
+                        )} */}
 
                       </div>
                     </td>

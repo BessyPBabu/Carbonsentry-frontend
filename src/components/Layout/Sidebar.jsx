@@ -8,6 +8,7 @@ import {
   FileText,
   Activity,
   Settings,
+  MessageSquare,
 } from "lucide-react";
 
 export default function Sidebar({ role, organizationName }) {
@@ -36,6 +37,7 @@ export default function Sidebar({ role, organizationName }) {
         { path: "documents", label: "Documents", icon: FileText },
         { path: "ai-review-queue", label: "AI Review Queue", icon: AlertTriangle },
         { path: "risk-analysis", label: "Risk Analysis", icon: Activity },
+        { path: "communication",   label: "Communication",    icon: MessageSquare },
         { path: "audit-logs", label: "Audit Logs", icon: Activity },
         { path: "reports", label: "Reports", icon: FileText },
       ];

@@ -22,6 +22,7 @@ export default function ViewerDashboard() {
     generated: 0,
     pendingApprovals: 0,
   });
+  const [recentActivity, setRecentActivity] = useState([]);
 
   useEffect(() => {
     fetchViewerDashboardData();
@@ -46,7 +47,7 @@ export default function ViewerDashboard() {
 
       const docsByVendor = {};
       documents.forEach((doc) => {
-        const vendorId = doc.vendor?.id;
+        const vendorId = doc.vendor_id;
         if (!vendorId) return;
 
         if (!docsByVendor[vendorId]) {
@@ -82,7 +83,7 @@ export default function ViewerDashboard() {
             doc.status === "flagged"
               ? "Flagged for Review"
               : "Document Updated",
-          entity: doc.vendor?.name || "Vendor",
+          entity: doc.vendor_name || "Vendor",
           details: doc.document_type || "Document",
         }));
 

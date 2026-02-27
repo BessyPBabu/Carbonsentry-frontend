@@ -19,15 +19,12 @@ const AIReviewQueue = () => {
 
   useEffect(() => {
     fetchReviews();
-  }, [page]); // re-fetch when page changes
+  }, [page]); 
 
   const fetchReviews = async () => {
     try {
       setLoading(true);
-      // pass page so backend returns the right slice
-      const res = await validationService.getReviewQueue({ page, page_size: PAGE_SIZE });
-
-      // getReviewQueue may return paginated {count, results} or a plain array
+      const res = await validationService.getReviewQueue({ page, page_size: PAGE_SIZE ,status: 'pending'});
       let list = [];
       let count = 0;
 
@@ -38,10 +35,8 @@ const AIReviewQueue = () => {
         list = res;
         count = res.length;
       }
-
-      // only show pending / in_progress rows
-      const pending = list.filter(r => r.status !== 'resolved');
-      setReviews(pending);
+      
+      setReviews(list);
       setTotalCount(count);
       setTotalPages(Math.ceil(count / PAGE_SIZE));
 

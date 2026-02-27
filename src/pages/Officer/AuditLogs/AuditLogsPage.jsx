@@ -13,9 +13,7 @@ const formatDate = (iso) =>
 const ACTION_COLORS = {
     vendor_created:       'bg-green-100 text-green-700',
     vendor_updated:       'bg-blue-100 text-blue-700',
-    vendor_deleted:       'bg-red-100 text-red-700',
     document_uploaded:    'bg-purple-100 text-purple-700',
-    document_deleted:     'bg-red-100 text-red-700',
     validation_triggered: 'bg-yellow-100 text-yellow-700',
     validation_completed: 'bg-green-100 text-green-700',
     review_resolved:      'bg-indigo-100 text-indigo-700',

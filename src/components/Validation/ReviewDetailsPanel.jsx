@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import Button from '../Common/Button';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 
 const ReviewDetailsPanel = ({ review, onResolve }) => {
   const [notes, setNotes] = useState('');
+  const navigate = useNavigate();
+  const { role } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const handleResolve = async (decision) => {
@@ -46,7 +50,16 @@ const ReviewDetailsPanel = ({ review, onResolve }) => {
           </div>
         </div>
         
-        <Button variant="outline" size="sm">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            const vendorId = review?.validation?.vendor_id;
+            if (vendorId) {
+              navigate(`/${role}/communication/${vendorId}`);
+            }
+          }}
+        >
           Communicate with Vendor
         </Button>
       </div>

@@ -1,21 +1,19 @@
-// riskService.js
 import api from './api';
 
 export const riskService = {
   getAllRiskProfiles: async (params = {}) => {
     const response = await api.get('/ai-validation/risk-profiles/', { params });
-    return response.data;
+    const data = response.data;
+    return Array.isArray(data) ? data : (data.results || []);
   },
 
   getVendorRiskProfile: async (vendorId) => {
     const response = await api.get('/ai-validation/risk-profiles/', {
       params: { vendor: vendorId }
     });
-    
-    if (response.data && response.data.length > 0) {
-      return response.data[0];
-    }
-    return null;
+    const data = response.data;
+    const results = Array.isArray(data) ? data : (data.results || []);
+    return results.length > 0 ? results[0] : null;
   },
 
   getRiskStats: async () => {

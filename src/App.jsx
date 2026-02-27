@@ -37,6 +37,7 @@ import VendorRiskList from "./pages/Validation/VendorRiskList";
 import VendorRiskAnalysis from "./pages/Validation/VendorRiskAnalysis";
 
 import VendorUpload from "./pages/Public/VendorUpload";
+import VendorChatPage from './pages/Public/VendorChatPage';
 import ViewerDashboard from "./pages/Viewer/Dashboard";
 
 
@@ -109,10 +110,8 @@ function App() {
               <Route path="communication/:vendorId" element={<CommunicationPage />} />
               <Route path="audit-logs" element={<AuditLogsPage />} />
 
-              
-          
-
             </Route>
+            <Route path="/vendor-chat/:token" element={<VendorChatPage />} />
 
             <Route
               path="/viewer"
