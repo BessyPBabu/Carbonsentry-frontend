@@ -12,7 +12,7 @@ const AIReviewQueue = () => {
   const [selectedReview, setSelectedReview] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // server-side pagination
+  
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
@@ -40,7 +40,7 @@ const AIReviewQueue = () => {
       setTotalCount(count);
       setTotalPages(Math.ceil(count / PAGE_SIZE));
 
-      // auto-select first row on first load
+      
       if (pending.length > 0 && !selectedReview) {
         setSelectedReview(pending[0]);
       }
@@ -54,7 +54,6 @@ const AIReviewQueue = () => {
   const handleResolve = async (decision, notes) => {
     try {
       await validationService.resolveReview(selectedReview.id, decision, notes);
-      // after resolve, clear selection and refresh current page
       setSelectedReview(null);
       await fetchReviews();
     } catch (error) {
@@ -64,7 +63,7 @@ const AIReviewQueue = () => {
 
   const handlePageChange = (newPage) => {
     setPage(newPage);
-    setSelectedReview(null); // clear selection on page turn
+    setSelectedReview(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -153,13 +152,13 @@ const AIReviewQueue = () => {
                       <RiskBadge level={getRiskImpact(review)} />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {/* FIX: plain button instead of missing Button component */}
+                      {/*  Button component */}
                       <button
                         className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedReview(review);
-                          // scroll down to the review panel
+                          
                           setTimeout(() => {
                             document.getElementById('review-panel')?.scrollIntoView({ behavior: 'smooth' });
                           }, 100);
@@ -174,7 +173,7 @@ const AIReviewQueue = () => {
             </table>
           </div>
 
-          {/* Pagination — FIX: use 'page' prop not 'currentPage' */}
+          {/* Pagination  */}
           <div className="flex items-center justify-between mb-8 text-sm text-gray-500">
             <span>
               Page {page} of {totalPages} — {totalCount} total

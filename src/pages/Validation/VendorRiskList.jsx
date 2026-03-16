@@ -5,7 +5,7 @@ import RiskBadge from '../../components/Validation/RiskBadge';
 import Button from '../../components/Common/Button';
 import { useAuth } from '../../context/AuthContext';
 
-// Risk score stored as 0-100 in DB, displayed as X.X / 5
+
 const toDisplayScore = (score) => {
   if (score === null || score === undefined) return 'N/A';
   return (parseFloat(score) / 20).toFixed(1);

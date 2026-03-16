@@ -16,7 +16,6 @@ const formatDay = (iso) => {
     });
 };
 
-// possible page states
 const STATE = {
     VALIDATING: 'validating',
     INVALID: 'invalid',
@@ -39,7 +38,6 @@ export default function VendorChatPage() {
     const wsRef = useRef(null);
     const messagesEndRef = useRef(null);
 
-    // step 1 — validate the token via REST before opening WebSocket
     useEffect(() => {
         if (!token) {
             setInvalidReason('No token provided in URL.');
@@ -53,7 +51,6 @@ export default function VendorChatPage() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    // cleanup WebSocket on unmount
     useEffect(() => {
         return () => {
             if (wsRef.current) {
@@ -81,8 +78,6 @@ export default function VendorChatPage() {
             setVendorName(result.vendor_name);
             setVendorId(result.vendor_id);
             setPageState(STATE.CONNECTING);
-
-            // open WebSocket using the chat token
             openSocket(result.vendor_id);
 
         } catch (err) {
@@ -98,7 +93,6 @@ export default function VendorChatPage() {
                 setPageState(STATE.CONNECTED);
             },
             onClose: (event) => {
-                // close codes set by the server consumer
                 if (event.code === 4002) {
                     setInvalidReason('Your session token is invalid or has expired.');
                     setPageState(STATE.EXPIRED);
@@ -111,8 +105,6 @@ export default function VendorChatPage() {
             },
             onMessage: (data) => {
                 if (data.type === 'chat_message') {
-                    // vendors don't see internal notes at all — the server already filters
-                    // but double-check on client side too
                     if (data.message_type === 'internal_note') return;
 
                     setMessages(prev => {
@@ -144,9 +136,7 @@ export default function VendorChatPage() {
         }
     };
 
-    // ---------------------------------------------------------------
-    // Render states
-    // ---------------------------------------------------------------
+
 
     if (pageState === STATE.VALIDATING || pageState === STATE.CONNECTING) {
         return (
@@ -210,7 +200,7 @@ export default function VendorChatPage() {
                     {vendorName.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                    <p className="font-semibold text-gray-900 text-sm">{vendorName}</p>
+                    <p className="font-semibold text-gray-900 text-sm">{vendorName}-CARBONSENTRY</p>
                     <div className="flex items-center gap-1">
                         <span className="w-2 h-2 rounded-full bg-green-400" />
                         <span className="text-xs text-gray-400">Secure session active</span>

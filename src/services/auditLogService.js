@@ -20,11 +20,28 @@ const auditLogService = {
         return res.data;
     },
 
-    exportCsv: (filters = {}) => {
-    const token = localStorage.getItem('access');
-    const params = new URLSearchParams({ ...filters, token });
-    const baseURL = import.meta.env.VITE_API_BASE_URL || '';
-    window.open(`${baseURL}/api/audit_logs/export_csv/?${params.toString()}`);
+    exportCsv: async (filters = {}) => {
+    const params = {};
+    if (filters.action)     params.action      = filters.action;
+    if (filters.actor)      params.actor       = filters.actor;
+    if (filters.entityType) params.entity_type = filters.entityType;
+    if (filters.dateFrom)   params.date_from   = filters.dateFrom;
+    if (filters.dateTo)     params.date_to     = filters.dateTo;
+ 
+    const res = await api.get('/audit_logs/export_csv/', {
+        params,
+        responseType: 'blob',
+    });
+ 
+    const blob = new Blob([res.data], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href     = url;
+    link.download = `audit_logs_${Date.now()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     },
 
 };

@@ -79,10 +79,23 @@ export default function Settings() {
     }
   };
 
-  const handleExportCompliance = () => {
-    const token   = localStorage.getItem("access");
-    const baseURL = import.meta.env.VITE_API_BASE_URL || "";
-    window.open(`${baseURL}/api/audit_logs/export_csv/?token=${token}`);
+  const handleExportCompliance = async () => {
+    try {
+        const res = await api.get("/audit_logs/export_csv/", {
+            responseType: "blob",
+        });
+        const blob = new Blob([res.data], { type: "text/csv" });
+        const url  = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href     = url;
+        link.download = `compliance_export_${Date.now()}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    } catch {
+        toast.error("Failed to export compliance data");
+    }
   };
 
   if (loading) return <div className="p-8 text-gray-600">Loading...</div>;

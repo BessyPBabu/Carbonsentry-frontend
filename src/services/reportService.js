@@ -1,7 +1,5 @@
 import api from './api';
 
-// NOTE: api.js stores the token as 'access' (not 'access_token')
-// PDF download goes through the authenticated api instance so no manual token needed
 
 const reportService = {
 
@@ -13,7 +11,7 @@ const reportService = {
         if (filters.page)        params.page = filters.page;
 
         const res = await api.get('/reports/', { params });
-        // handle both paginated and plain list responses
+        
         return Array.isArray(res.data) ? res.data : (res.data.results || []);
     },
 
@@ -36,9 +34,6 @@ const reportService = {
         await api.delete(`/reports/${id}/`);
     },
 
-    // FIX: was reading localStorage.getItem('access_token') — key is 'access'
-    // FIX: was using VITE_API_URL — correct var is VITE_API_BASE_URL (same as api.js)
-    // Using api instance with responseType blob so JWT interceptor handles auth automatically
     downloadPdf: async (id, filename = 'report.pdf') => {
         try {
             const res = await api.get(`/reports/${id}/download_pdf/`, {

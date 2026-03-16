@@ -281,6 +281,7 @@ export default function DocumentsList() {
                   <th className="px-4 py-3 text-left font-semibold">Validation</th>
                   <th className="px-4 py-3 text-left font-semibold">Confidence</th>
                   <th className="px-4 py-3 text-left font-semibold">Expiry Date</th>
+                  <th className="px-4 py-3 text-left font-semibold">Uploads</th>
                   <th className="px-4 py-3 text-left font-semibold">Uploaded</th>
                   <th className="px-4 py-3 text-center font-semibold">Actions</th>
                 </tr>
@@ -333,6 +334,12 @@ export default function DocumentsList() {
                     </td>
 
                     <td className="px-4 py-3">
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 text-gray-700 text-xs font-semibold">
+                        {doc.upload_attempts ?? 0}
+                      </span>
+                    </td>
+
+                    <td className="px-4 py-3">
                       {doc.uploaded_at ? formatDate(doc.uploaded_at) : "Not uploaded"}
                     </td>
 
@@ -380,15 +387,6 @@ export default function DocumentsList() {
                             Validated ✓
                           </span>
                         )}
-
-                        {/* {doc.validation && (
-                          <Link
-                            to={`/officer/validation/${doc.validation.id}`}
-                            className="text-purple-600 hover:text-purple-700 font-medium"
-                          >
-                            Details
-                          </Link>
-                        )} */}
 
                       </div>
                     </td>

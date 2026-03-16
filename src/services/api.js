@@ -1,15 +1,13 @@
 import axios from "axios";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api/`,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  headers: { "Content-Type": "application/json" },
 });
 
+// attach access token from localStorage on every request
 api.interceptors.request.use((config) => {
   const access = localStorage.getItem("access");
   if (access) {
@@ -21,34 +19,39 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config;
+    const original = error.config;
 
     if (!error.response) {
       return Promise.reject({ message: "Network error" });
     }
 
-    if (error.response.status === 401 && !originalRequest._retry) {
+    // only attempt refresh once per request
+    if (error.response.status === 401 && !original._retry) {
+      original._retry = true;
+
       const refresh = localStorage.getItem("refresh");
 
       if (!refresh) {
-        localStorage.clear();
+        // no refresh token — full logout
+        localStorage.removeItem("access");
+        localStorage.removeItem("refresh");
         window.location.href = "/login";
         return Promise.reject(error);
       }
-
-      originalRequest._retry = true;
 
       try {
         const res = await axios.post(
           `${API_BASE_URL}/api/accounts/auth/token/refresh/`,
           { refresh }
         );
-
-        localStorage.setItem("access", res.data.access);
-        originalRequest.headers.Authorization = `Bearer ${res.data.access}`;
-        return api(originalRequest);
+        const newAccess = res.data.access;
+        localStorage.setItem("access", newAccess);
+        original.headers.Authorization = `Bearer ${newAccess}`;
+        return api(original);
       } catch {
-        localStorage.clear();
+        // refresh token itself is expired or invalid
+        localStorage.removeItem("access");
+        localStorage.removeItem("refresh");
         window.location.href = "/login";
       }
     }

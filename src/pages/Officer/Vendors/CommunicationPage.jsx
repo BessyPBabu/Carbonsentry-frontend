@@ -33,8 +33,6 @@ export default function CommunicationPage() {
     const [connected, setConnected] = useState(false);
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [loadingList, setLoadingList] = useState(true);
-
-    // invite modal
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviting, setInviting] = useState(false);
@@ -42,19 +40,19 @@ export default function CommunicationPage() {
     const wsRef = useRef(null);
     const messagesEndRef = useRef(null);
 
-    // load sidebar chat list on mount
+    
     useEffect(() => {
         loadChatList();
     }, []);
 
-    // when active vendor changes, load history and open WebSocket
+    
     useEffect(() => {
         if (!activeVendorId) return;
         loadMessages(activeVendorId);
         openSocket(activeVendorId);
 
         return () => {
-            // cleanup WebSocket when switching vendors
+            
             if (wsRef.current) {
                 wsRef.current.close();
                 wsRef.current = null;
@@ -62,7 +60,7 @@ export default function CommunicationPage() {
         };
     }, [activeVendorId]);
 
-    // scroll to bottom when messages change
+    
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
@@ -73,7 +71,7 @@ export default function CommunicationPage() {
             const list = await communicationService.getChatList();
             setChatList(list);
 
-            // if no vendor selected yet and list has items, auto-select first
+            
             if (!activeVendorId && list.length > 0) {
                 selectVendor(list[0].vendor_id, list[0].vendor_name);
             }
@@ -98,7 +96,7 @@ export default function CommunicationPage() {
     };
 
     const openSocket = (vid) => {
-        // close existing socket first
+        
         if (wsRef.current) {
             wsRef.current.close();
         }
@@ -113,7 +111,7 @@ export default function CommunicationPage() {
             onMessage: (data) => {
                 if (data.type === 'chat_message') {
                     setMessages(prev => {
-                        // avoid duplicate if we echoed our own message optimistically
+                        
                         const exists = prev.some(m => m.id === data.id);
                         if (exists) return prev;
                         return [...prev, {
@@ -166,7 +164,7 @@ export default function CommunicationPage() {
             toast.success(res.message || 'Invitation sent');
             setShowInviteModal(false);
             setInviteEmail('');
-            loadChatList(); // refresh so active token status updates
+            loadChatList(); 
         } catch (err) {
             console.error('CommunicationPage.handleSendInvite:', err);
             toast.error(err.response?.data?.error || 'Failed to send invitation');
