@@ -23,31 +23,28 @@ const AIReviewQueue = () => {
 
   const fetchReviews = async () => {
     try {
-      setLoading(true);
-      const res = await validationService.getReviewQueue({ page, page_size: PAGE_SIZE ,status: 'pending'});
-      let list = [];
-      let count = 0;
+        setLoading(true);
+        const res = await validationService.getReviewQueue({
+            page,
+            page_size: PAGE_SIZE,
+            status: 'pending',
+        });
 
-      if (res && typeof res === 'object' && 'results' in res) {
-        list = res.results;
-        count = res.count;
-      } else if (Array.isArray(res)) {
-        list = res;
-        count = res.length;
-      }
-      
-      setReviews(list);
-      setTotalCount(count);
-      setTotalPages(Math.ceil(count / PAGE_SIZE));
+        const list  = res?.results ?? (Array.isArray(res) ? res : []);
+        const count = res?.count   ?? list.length;
 
-      
-      if (pending.length > 0 && !selectedReview) {
-        setSelectedReview(pending[0]);
-      }
-    } catch (error) {
-      console.error('AIReviewQueue: error fetching reviews:', error);
+        setReviews(list);
+        setTotalCount(count);
+        setTotalPages(Math.ceil(count / PAGE_SIZE));
+
+        // auto-select first item only on initial load
+        if (list.length > 0 && !selectedReview) {
+            setSelectedReview(list[0]);
+        }
+    } catch (err) {
+        console.error('AIReviewQueue.fetchReviews:', err);
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
 

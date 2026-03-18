@@ -114,6 +114,18 @@ export default function DocumentsList() {
     return displayMap[status] || status;
   };
 
+  const handleResendLink = async (doc) => {
+    try {
+        await api.post(`/vendors/documents/${doc.id}/resend-link/`);
+        toast.success(`Upload link resent to vendor`);
+        fetchDocuments();
+    } catch (err) {
+        const msg = err.response?.data?.error || 'Failed to resend link';
+        toast.error(msg);
+        console.error('handleResendLink:', err);
+    }
+  };
+
   const handleClearFilters = () => {
     setFilters({ status: "", vendor: "", search: "" });
     setPage(1);
@@ -180,9 +192,7 @@ export default function DocumentsList() {
   // - its status is 'uploaded' (has a file)
   // - we haven't already triggered validation this session
   const canValidate = (doc) =>
-    !doc.validation &&
-    doc.status === "uploaded" &&
-    !validatingIds.has(doc.id);
+    !doc.validation && doc.status === 'uploaded' && !validatingIds.has(doc.id);
 
   const isValidating = (doc) =>
     validatingIds.has(doc.id) && !doc.validation;
@@ -344,53 +354,59 @@ export default function DocumentsList() {
                     </td>
 
                     <td className="px-4 py-3 text-center text-sm">
-                      <div className="flex gap-3 justify-center flex-wrap">
+                      <div className="flex gap-2 justify-center flex-wrap">
 
-                        {doc.file_url && (
-                          <button
-                            onClick={() => handleView(doc)}
-                            className="text-blue-600 hover:text-blue-700 font-medium"
-                          >
-                            View
-                          </button>
-                        )}
+                          {doc.file_url && (
+                              <button
+                                  onClick={() => handleView(doc)}
+                                  className="text-blue-600 hover:text-blue-700 font-medium"
+                              >
+                                  View
+                              </button>
+                          )}
 
-                        {doc.download_url && (
-                          <button
-                            onClick={() => handleDownload(doc)}
-                            className="text-green-600 hover:text-green-700 font-medium"
-                          >
-                            Download
-                          </button>
-                        )}
+                          {doc.download_url && (
+                              <button
+                                  onClick={() => handleDownload(doc)}
+                                  className="text-green-600 hover:text-green-700 font-medium"
+                              >
+                                  Download
+                              </button>
+                          )}
 
-                        {/* FIX: show validate button only if not yet validated and not currently validating */}
-                        {canValidate(doc) && (
-                          <button
-                            onClick={() => handleTriggerValidation(doc.id)}
-                            className="text-emerald-600 hover:text-emerald-700 font-medium"
-                          >
-                            Validate
-                          </button>
-                        )}
+                          {canValidate(doc) && (
+                              <button
+                                  onClick={() => handleTriggerValidation(doc.id)}
+                                  className="text-emerald-600 hover:text-emerald-700 font-medium"
+                              >
+                                  Validate
+                              </button>
+                          )}
 
-                        {/* show a non-clickable pill while validation is in progress */}
-                        {isValidating(doc) && (
-                          <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-600 rounded-full">
-                            Validating...
-                          </span>
-                        )}
+                          {isValidating(doc) && (
+                              <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-600 rounded-full">
+                                  Validating…
+                              </span>
+                          )}
 
-                        {/* show validated pill if validation exists and completed */}
-                        {doc.validation?.status === "completed" && !doc.validation?.requires_manual_review && (
-                          <span className="px-2 py-0.5 text-xs bg-green-100 text-green-600 rounded-full">
-                            Validated ✓
-                          </span>
-                        )}
+                          {doc.validation?.status === 'completed' && !doc.validation?.requires_manual_review && (
+                              <span className="px-2 py-0.5 text-xs bg-green-100 text-green-600 rounded-full">
+                                  Validated ✓
+                              </span>
+                          )}
+
+                          {/* resend upload link — only for docs the vendor needs to re-upload */}
+                          {(doc.status === 'invalid' || doc.status === 'expired') && (
+                              <button
+                                  onClick={() => handleResendLink(doc)}
+                                  className="text-orange-600 hover:text-orange-700 font-medium"
+                              >
+                                  Resend Link
+                              </button>
+                          )}
 
                       </div>
-                    </td>
-
+                  </td>  
                   </tr>
                 ))}
               </tbody>
