@@ -2,18 +2,18 @@ import { useState, useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import Sidebar from "./Sidebar";
-import Header from "./Header";
+import Header  from "./Header";
 
 export default function DashboardLayout() {
   const { isAuthenticated, loading, role, organizationName, logout } = useAuth();
   const location = useLocation();
 
-  // open by default on desktop, closed on mobile
+  // Open by default on desktop, closed on mobile
   const [sidebarOpen, setSidebarOpen] = useState(
     typeof window !== "undefined" && window.innerWidth >= 1024
   );
 
-  // auto-close sidebar on mobile whenever the route changes
+  // Auto-close sidebar on mobile whenever the route changes
   useEffect(() => {
     if (window.innerWidth < 1024) {
       setSidebarOpen(false);
@@ -22,7 +22,8 @@ export default function DashboardLayout() {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center text-gray-500 text-sm">
+      <div className="h-screen flex items-center justify-center
+        bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 text-sm">
         Loading…
       </div>
     );
@@ -31,9 +32,9 @@ export default function DashboardLayout() {
   if (!isAuthenticated) return null;
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden transition-colors">
 
-      {/* mobile backdrop — tapping it closes the sidebar */}
+      {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/40 z-20 lg:hidden"
@@ -56,7 +57,7 @@ export default function DashboardLayout() {
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
         />
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 transition-colors">
           <Outlet />
         </main>
       </div>

@@ -81,7 +81,7 @@ export default function Sidebar({ role, organizationName, isOpen, onClose }) {
             <div className={`overflow-hidden transition-all duration-200 ${isOpen ? "opacity-100 max-w-full" : "opacity-0 max-w-0 lg:max-w-0"}`}>
               <h1 className="text-xl font-bold whitespace-nowrap">CarbonSentry</h1>
               {organizationName && (
-                <p className="text-xs text-white/80 mt-0.5 truncate max-w-[160px]">
+                <p className="text-xs text-white/80 mt-0.5 truncate max-w-40">
                   {organizationName}
                 </p>
               )}
@@ -91,7 +91,7 @@ export default function Sidebar({ role, organizationName, isOpen, onClose }) {
             {/* close button — mobile only */}
             <button
               onClick={onClose}
-              className="lg:hidden p-1 rounded hover:bg-white/10 flex-shrink-0"
+              className="lg:hidden p-1 rounded hover:bg-white/10 shrink-0"
               aria-label="Close sidebar"
             >
               <X size={18} />
@@ -120,7 +120,7 @@ export default function Sidebar({ role, organizationName, isOpen, onClose }) {
                     }
                   `}
                 >
-                  <Icon size={20} className="flex-shrink-0" />
+                  <Icon size={20} className="shrink-0" />
                   <span className={`
                     text-sm whitespace-nowrap overflow-hidden transition-all duration-200
                     ${isOpen ? "opacity-100 max-w-full" : "opacity-0 max-w-0"}

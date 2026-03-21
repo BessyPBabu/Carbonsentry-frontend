@@ -44,15 +44,15 @@ export default function VerifyEmailSent() {
             </p>
             <ol className="text-sm text-blue-800 space-y-2">
               <li className="flex items-start gap-2">
-                <span className="font-bold min-w-[20px]">1.</span>
+                <span className="font-bold min-w-5">1.</span>
                 <span>Open your email inbox and find the message from CarbonSentry</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="font-bold min-w-[20px]">2.</span>
+                <span className="font-bold min-w-5">2.</span>
                 <span>Click the verification link in the email</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="font-bold min-w-[20px]">3.</span>
+                <span className="font-bold min-w-5">3.</span>
                 <span>You'll be redirected back to login</span>
               </li>
             </ol>

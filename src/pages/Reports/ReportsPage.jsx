@@ -20,26 +20,23 @@ const STATUS_COLORS = {
 };
 
 const REPORT_TYPE_LABELS = {
-    vendor_risk:         'Vendor Risk Report',
-    compliance_summary:  'Compliance Summary',
-    emissions_overview:  'Emissions Overview',
-    document_audit:      'Document Audit Report',
+    vendor_risk:        'Vendor Risk Report',
+    compliance_summary: 'Compliance Summary',
+    emissions_overview: 'Emissions Overview',
+    document_audit:     'Document Audit Report',
 };
 
 export default function ReportsPage() {
     const navigate = useNavigate();
     const { role } = useAuth();
 
-    const [reports, setReports] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
+    const [reports, setReports]               = useState([]);
+    const [loading, setLoading]               = useState(true);
+    const [error, setError]                   = useState('');
     const [showGenerateModal, setShowGenerateModal] = useState(false);
-    const [downloadingId, setDownloadingId] = useState(null);
+    const [downloadingId, setDownloadingId]   = useState(null);
 
-    const [filters, setFilters] = useState({
-        report_type: '',
-        status: '',
-    });
+    const [filters, setFilters] = useState({ report_type: '', status: '' });
 
     const basePath = role === 'admin' ? '/admin' : '/officer';
 
@@ -57,9 +54,7 @@ export default function ReportsPage() {
         }
     }, [filters]);
 
-    useEffect(() => {
-        fetchReports();
-    }, [fetchReports]);
+    useEffect(() => { fetchReports(); }, [fetchReports]);
 
     const handleFilterChange = (key, value) => {
         setFilters((prev) => ({ ...prev, [key]: value }));
@@ -82,14 +77,13 @@ export default function ReportsPage() {
         try {
             const filename = `${report.title.replace(/\s+/g, '_')}.pdf`;
             await reportService.downloadPdf(report.id, filename);
-        } catch (err) {
+        } catch {
             toast.error('Failed to download PDF');
         } finally {
             setDownloadingId(null);
         }
     };
 
-    // after generation, add the new report to the top of the list and navigate to preview
     const handleReportGenerated = (newReport) => {
         setReports((prev) => [newReport, ...prev]);
         setShowGenerateModal(false);
@@ -120,7 +114,8 @@ export default function ReportsPage() {
                 <select
                     value={filters.report_type}
                     onChange={(e) => handleFilterChange('report_type', e.target.value)}
-                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700
+                        focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                     <option value="">All Report Types</option>
                     <option value="vendor_risk">Vendor Risk Report</option>
@@ -132,7 +127,8 @@ export default function ReportsPage() {
                 <select
                     value={filters.status}
                     onChange={(e) => handleFilterChange('status', e.target.value)}
-                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700
+                        focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                     <option value="">All Statuses</option>
                     <option value="draft">Draft</option>
@@ -154,10 +150,7 @@ export default function ReportsPage() {
             {error && (
                 <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
                     {error}
-                    <button
-                        onClick={fetchReports}
-                        className="ml-3 underline hover:no-underline"
-                    >
+                    <button onClick={fetchReports} className="ml-3 underline hover:no-underline">
                         Retry
                     </button>
                 </div>
@@ -167,7 +160,7 @@ export default function ReportsPage() {
             <div className="flex flex-col gap-3">
                 {loading ? (
                     <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
-                        Loading reports...
+                        Loading reports…
                     </div>
                 ) : reports.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 text-gray-400 text-sm gap-3">
@@ -212,13 +205,15 @@ function ReportCard({ report, role, basePath, downloadingId, onView, onDownloadP
         <div className="bg-white border rounded-xl p-5 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between gap-4">
 
-                {/* Left — info */}
+                {/* Left */}
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2 flex-wrap">
                         <h3 className="text-base font-semibold text-gray-900 truncate">
                             {report.title}
                         </h3>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${STATUS_COLORS[report.status] || 'bg-gray-100 text-gray-600'}`}>
+                        {/* FIX: replaced flex-shrink-0 with shrink-0 */}
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium shrink-0
+                            ${STATUS_COLORS[report.status] || 'bg-gray-100 text-gray-600'}`}>
                             {report.status}
                         </span>
                     </div>
@@ -244,11 +239,12 @@ function ReportCard({ report, role, basePath, downloadingId, onView, onDownloadP
                     )}
                 </div>
 
-                {/* Right — actions */}
-                <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Right — FIX: replaced flex-shrink-0 with shrink-0 */}
+                <div className="flex items-center gap-2 shrink-0">
                     <button
                         onClick={onView}
-                        className="px-3 py-1.5 text-sm text-emerald-600 border border-emerald-200 rounded-lg hover:bg-emerald-50 transition-colors"
+                        className="px-3 py-1.5 text-sm text-emerald-600 border border-emerald-200
+                            rounded-lg hover:bg-emerald-50 transition-colors"
                     >
                         View
                     </button>
@@ -257,17 +253,18 @@ function ReportCard({ report, role, basePath, downloadingId, onView, onDownloadP
                         <button
                             onClick={onDownloadPdf}
                             disabled={downloadingId === report.id}
-                            className="px-3 py-1.5 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                            className="px-3 py-1.5 text-sm text-gray-600 border border-gray-200
+                                rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
                         >
-                            {downloadingId === report.id ? 'Downloading...' : 'PDF'}
+                            {downloadingId === report.id ? 'Downloading…' : 'PDF'}
                         </button>
                     )}
 
-                    {/* only non-viewer, non-approved reports can be deleted */}
                     {role !== 'viewer' && report.status !== 'approved' && (
                         <button
                             onClick={onDelete}
-                            className="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                            className="px-3 py-1.5 text-sm text-red-600 border border-red-200
+                                rounded-lg hover:bg-red-50 transition-colors"
                         >
                             Delete
                         </button>

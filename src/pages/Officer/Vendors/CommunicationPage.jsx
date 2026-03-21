@@ -179,7 +179,7 @@ export default function CommunicationPage() {
         <div className="flex h-[calc(100vh-64px)] overflow-hidden">
 
             {/* Sidebar */}
-            <div className="w-72 border-r bg-white flex flex-col flex-shrink-0">
+            <div className="w-72 border-r bg-white flex flex-col shrink-0">
                 <div className="px-4 py-4 border-b">
                     <h2 className="text-lg font-bold text-gray-900">Vendor Chats</h2>
                     <p className="text-xs text-gray-400 mt-0.5">Real-time secure messaging</p>
@@ -206,7 +206,7 @@ export default function CommunicationPage() {
                                         {chat.vendor_name}
                                     </span>
                                     {chat.unread_count > 0 && (
-                                        <span className="ml-2 bg-emerald-500 text-white text-xs rounded-full px-1.5 py-0.5 flex-shrink-0">
+                                        <span className="ml-2 bg-emerald-500 text-white text-xs rounded-full px-1.5 py-0.5 shrink-0">
                                             {chat.unread_count}
                                         </span>
                                     )}
@@ -231,7 +231,7 @@ export default function CommunicationPage() {
                 <div className="flex-1 flex flex-col overflow-hidden">
 
                     {/* Chat header */}
-                    <div className="px-6 py-3 border-b bg-white flex items-center justify-between flex-shrink-0">
+                    <div className="px-6 py-3 border-b bg-white flex items-center justify-between shrink-0">
                         <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 font-semibold text-sm">
                                 {activeVendorName.charAt(0).toUpperCase()}
@@ -307,7 +307,7 @@ export default function CommunicationPage() {
                     </div>
 
                     {/* Input area */}
-                    <div className="px-6 py-4 bg-white border-t flex-shrink-0">
+                    <div className="px-6 py-4 bg-white border-t shrink-0">
                         {/* message type toggle */}
                         <div className="flex gap-2 mb-3">
                             <button

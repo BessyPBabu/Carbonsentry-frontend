@@ -131,7 +131,7 @@ export default function ReportPreview() {
                         <span>{formatDate(report.generated_at)}</span>
                     </div>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-sm font-medium flex-shrink-0 ${STATUS_COLORS[report.status]}`}>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium shrink-0 ${STATUS_COLORS[report.status]}`}>
                     {report.status}
                 </span>
             </div>
@@ -269,7 +269,7 @@ function VendorRiskContent({ data }) {
                     <ul className="space-y-1">
                         {recs.map((r, i) => (
                             <li key={i} className="text-sm text-gray-700 flex gap-2">
-                                <span className="text-emerald-500 flex-shrink-0">•</span>
+                                <span className="text-emerald-500 shrink-0">•</span>
                                 {r}
                             </li>
                         ))}

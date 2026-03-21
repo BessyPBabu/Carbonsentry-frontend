@@ -6,23 +6,22 @@ export default function ViewerDashboard() {
   const [loading, setLoading] = useState(true);
 
   const [stats, setStats] = useState({
-    totalVendors: 0,
+    totalVendors:      0,
     uploadedDocuments: 0,
-    pendingDocuments: 0,
-    highRiskVendors: 0,
+    pendingDocuments:  0,
+    highRiskVendors:   0,
   });
-
 
   const [aiHealth, setAiHealth] = useState({
     documentsValidated: 0,
-    flaggedForReview: 0,
+    flaggedForReview:   0,
   });
 
-  const [reports] = useState({
-    generated: 0,
+  // FIX: actually fetched from the reports API instead of hardcoded zeros
+  const [reports, setReports] = useState({
+    generated:       0,
     pendingApprovals: 0,
   });
-  const [recentActivity, setRecentActivity] = useState([]);
 
   useEffect(() => {
     fetchViewerDashboardData();
@@ -30,78 +29,63 @@ export default function ViewerDashboard() {
 
   const fetchViewerDashboardData = async () => {
     try {
-      
-      const vendorsRes = await api.get("/vendors/");
-      const vendors = vendorsRes.data.results || vendorsRes.data;
+      const [vendorsRes, docsRes, reportsRes] = await Promise.allSettled([
+        api.get("/vendors/"),
+        api.get("/vendors/documents/"),
+        api.get("/reports/"),
+      ]);
 
-      const docsRes = await api.get("/vendors/documents/");
-      const documents = docsRes.data.results || docsRes.data;
+      // ── Vendors ──
+      const vendors =
+        vendorsRes.status === "fulfilled"
+          ? vendorsRes.value.data.results || vendorsRes.value.data || []
+          : [];
 
-      const uploadedDocuments = documents.filter((doc) =>
-        ["uploaded", "valid"].includes(doc.status)
+      // ── Documents ──
+      const documents =
+        docsRes.status === "fulfilled"
+          ? docsRes.value.data.results || docsRes.value.data || []
+          : [];
+
+      const uploadedDocuments = documents.filter((d) =>
+        ["uploaded", "valid"].includes(d.status)
       ).length;
 
       const pendingDocuments = documents.filter(
-        (doc) => doc.status === "pending"
+        (d) => d.status === "pending"
       ).length;
 
-      const docsByVendor = {};
-      documents.forEach((doc) => {
-        const vendorId = doc.vendor_id;
-        if (!vendorId) return;
+      // High-risk: vendors that have at least one flagged/expired/invalid doc
+      const riskVendorIds = new Set(
+        documents
+          .filter((d) => ["flagged", "expired", "invalid"].includes(d.status))
+          .map((d) => d.vendor_id)
+          .filter(Boolean)
+      );
+      const highRiskVendors = riskVendorIds.size;
 
-        if (!docsByVendor[vendorId]) {
-          docsByVendor[vendorId] = [];
-        }
-        docsByVendor[vendorId].push(doc);
-      });
-
-      let highRiskVendors = 0;
-
-      vendors.forEach((vendor) => {
-        const vendorDocs = docsByVendor[vendor.id] || [];
-        const hasRisk = vendorDocs.some((doc) =>
-          ["flagged", "expired", "invalid"].includes(doc.status)
-        );
-        if (hasRisk) highRiskVendors++;
-      });
-
+      // ── AI health ──
       const documentsValidated = documents.filter(
-        (doc) => doc.status === "valid"
+        (d) => d.status === "valid"
       ).length;
-
       const flaggedForReview = documents.filter(
-        (doc) => doc.status === "flagged"
+        (d) => d.status === "flagged"
       ).length;
 
-      const activity = documents
-        .slice(0, 5)
-        .map((doc) => ({
-          timestamp: doc.uploaded_at || doc.created_at,
-          actor: "System",
-          action:
-            doc.status === "flagged"
-              ? "Flagged for Review"
-              : "Document Updated",
-          entity: doc.vendor_name || "Vendor",
-          details: doc.document_type || "Document",
-        }));
+      // ── Reports ──
+      const reportList =
+        reportsRes.status === "fulfilled"
+          ? reportsRes.value.data.results || reportsRes.value.data || []
+          : [];
 
-      setStats({
-        totalVendors: vendors.length,
-        uploadedDocuments,
-        pendingDocuments,
-        highRiskVendors,
+      setStats({ totalVendors: vendors.length, uploadedDocuments, pendingDocuments, highRiskVendors });
+      setAiHealth({ documentsValidated, flaggedForReview });
+      setReports({
+        generated:        reportList.filter((r) => r.status === "approved").length,
+        pendingApprovals: reportList.filter((r) => r.status === "generated").length,
       });
-
-      setAiHealth({
-        documentsValidated,
-        flaggedForReview,
-      });
-
-      setRecentActivity(activity);
     } catch (error) {
-      console.error("Failed to load viewer dashboard", error);
+      console.error("Viewer dashboard fetch failed:", error);
       toast.error("Failed to load dashboard data");
     } finally {
       setLoading(false);
@@ -110,8 +94,9 @@ export default function ViewerDashboard() {
 
   if (loading) {
     return (
-      <div className="p-8 flex justify-center items-center min-h-screen text-gray-600">
-        Loading dashboard...
+      <div className="p-8 flex justify-center items-center min-h-screen
+        text-gray-600 dark:text-gray-400">
+        Loading dashboard…
       </div>
     );
   }
@@ -120,71 +105,51 @@ export default function ViewerDashboard() {
     <div className="p-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           Viewer Dashboard
         </h1>
-        <p className="text-gray-600 mt-1">
+        <p className="text-gray-600 dark:text-gray-400 mt-1">
           Read-only compliance overview
         </p>
       </div>
 
       {/* Top Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <StatCard title="Total Vendors" value={stats.totalVendors} />
-        <StatCard
-          title="Uploaded Documents"
-          value={stats.uploadedDocuments}
-          color="blue"
-        />
-        <StatCard
-          title="Pending Documents"
-          value={stats.pendingDocuments}
-          color="yellow"
-        />
-        <StatCard
-          title="High-Risk Vendors"
-          value={stats.highRiskVendors}
-          color="red"
-        />
+        <StatCard title="Total Vendors"       value={stats.totalVendors} />
+        <StatCard title="Uploaded Documents"  value={stats.uploadedDocuments}  color="blue" />
+        <StatCard title="Pending Documents"   value={stats.pendingDocuments}   color="yellow" />
+        <StatCard title="High-Risk Vendors"   value={stats.highRiskVendors}    color="red" />
       </div>
-
-      
 
       {/* Bottom Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold mb-4">
+        {/* AI System Health */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border dark:border-gray-700">
+          <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
             AI System Health
           </h3>
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span>Documents Validated</span>
-              <span className="font-bold">
-                {aiHealth.documentsValidated}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span>Flagged for Review</span>
-              <span className="font-bold text-yellow-600">
-                {aiHealth.flaggedForReview}
-              </span>
-            </div>
+          <div className="space-y-3">
+            <InfoRow label="Documents Validated" value={aiHealth.documentsValidated} />
+            <InfoRow
+              label="Flagged for Review"
+              value={aiHealth.flaggedForReview}
+              valueClass="font-bold text-yellow-600 dark:text-yellow-400"
+            />
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold mb-4">Reports</h3>
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span>Reports Generated</span>
-              <span className="font-bold">{reports.generated}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Pending Approvals</span>
-              <span className="font-bold text-yellow-600">
-                {reports.pendingApprovals}
-              </span>
-            </div>
+        {/* Reports */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border dark:border-gray-700">
+          <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+            Reports
+          </h3>
+          <div className="space-y-3">
+            <InfoRow label="Approved Reports"  value={reports.generated} />
+            <InfoRow
+              label="Pending Approvals"
+              value={reports.pendingApprovals}
+              valueClass="font-bold text-yellow-600 dark:text-yellow-400"
+            />
           </div>
         </div>
       </div>
@@ -192,22 +157,26 @@ export default function ViewerDashboard() {
   );
 }
 
-
-
 function StatCard({ title, value, color = "gray" }) {
   const colors = {
-    gray: "text-gray-900",
-    blue: "text-blue-600",
-    yellow: "text-yellow-600",
-    red: "text-red-600",
+    gray:   "text-gray-900 dark:text-white",
+    blue:   "text-blue-600 dark:text-blue-400",
+    yellow: "text-yellow-600 dark:text-yellow-400",
+    red:    "text-red-600 dark:text-red-400",
   };
-
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <p className="text-sm text-gray-600 mb-1">{title}</p>
-      <p className={`text-3xl font-bold ${colors[color]}`}>
-        {value}
-      </p>
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border dark:border-gray-700">
+      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">{title}</p>
+      <p className={`text-3xl font-bold ${colors[color]}`}>{value}</p>
+    </div>
+  );
+}
+
+function InfoRow({ label, value, valueClass = "font-bold text-gray-900 dark:text-white" }) {
+  return (
+    <div className="flex justify-between items-center text-sm">
+      <span className="text-gray-600 dark:text-gray-400">{label}</span>
+      <span className={valueClass}>{value}</span>
     </div>
   );
 }

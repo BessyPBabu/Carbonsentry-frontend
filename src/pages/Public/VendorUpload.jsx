@@ -20,9 +20,8 @@ function StatusBadge({ status }) {
     );
 }
 
-// one row per document — handles its own file selection and upload state
 function DocumentRow({ doc, token, onUploaded }) {
-    const [file, setFile] = useState(null);
+    const [file, setFile]         = useState(null);
     const [uploading, setUploading] = useState(false);
     const inputRef = useRef(null);
 
@@ -34,7 +33,6 @@ function DocumentRow({ doc, token, onUploaded }) {
             form.append('document_id', doc.id);
             form.append('file', file);
 
-            // correct URL: token goes in the path, NOT as a query param
             await axios.post(
                 `${PUBLIC_BASE}/api/vendors/upload/${token}/`,
                 form,
@@ -43,7 +41,6 @@ function DocumentRow({ doc, token, onUploaded }) {
 
             toast.success(`${doc.document_type} uploaded successfully`);
             setFile(null);
-            // reset the hidden file input so the same file can be re-selected if needed
             if (inputRef.current) inputRef.current.value = '';
             onUploaded();
         } catch (err) {
@@ -78,14 +75,16 @@ function DocumentRow({ doc, token, onUploaded }) {
                             ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
                             : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'
                         }`}>
-                        {file ? file.name : 'Choose file (PDF, JPG, PNG, DOCX)'}
+                        {file ? file.name : 'Choose file — PDF, JPG, PNG, DOCX'}
                     </span>
                 </label>
 
                 <button
                     onClick={handleUpload}
                     disabled={!file || uploading}
-                    className="px-4 py-2 bg-[#1a8f70] text-white text-sm rounded-lg hover:bg-[#157a5f] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                    className="px-4 py-2 bg-[#1a8f70] text-white text-sm rounded-lg
+                        hover:bg-[#157a5f] disabled:opacity-40 disabled:cursor-not-allowed
+                        transition-colors shrink-0"
                 >
                     {uploading ? 'Uploading…' : 'Upload'}
                 </button>
@@ -102,7 +101,8 @@ function DocumentRow({ doc, token, onUploaded }) {
 
 function SuccessScreen({ vendorName }) {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-white flex items-center justify-center px-4">
+        // FIX: replaced bg-gradient-to-br with solid bg-white
+        <div className="min-h-screen bg-white flex items-center justify-center px-4">
             <div className="max-w-md w-full text-center">
                 <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
                     <svg className="w-10 h-10 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -114,8 +114,12 @@ function SuccessScreen({ vendorName }) {
                     Thank you, <strong>{vendorName}</strong>. Your compliance documents have been
                     received and are being reviewed by CarbonSentry AI.
                 </p>
-                <div className="bg-white border rounded-xl p-4 text-left space-y-2 mb-6">
-                    {['Documents securely received', 'AI validation in progress', 'Your compliance officer will be notified'].map((line) => (
+                <div className="bg-gray-50 border rounded-xl p-4 text-left space-y-2 mb-6">
+                    {[
+                        'Documents securely received',
+                        'AI validation in progress',
+                        'Your compliance officer will be notified',
+                    ].map((line) => (
                         <div key={line} className="flex items-center gap-2 text-sm text-gray-700">
                             <span className="text-emerald-500">✓</span> {line}
                         </div>
@@ -136,16 +140,11 @@ export default function VendorUpload() {
     const [documents, setDocuments]   = useState([]);
     const [allDone, setAllDone]       = useState(false);
 
-    // track whether we successfully loaded at least one document
-    // so we can show the success screen when the last one is uploaded
-    // (after the last upload, the backend returns an empty pending list,
-    //  so we can't use docs.length > 0 alone)
     const hadDocumentsRef = useRef(false);
 
     const fetchData = async () => {
         try {
-            // GET /api/vendors/upload/{token}/ — returns vendor info + pending_documents
-            const res = await axios.get(`${PUBLIC_BASE}/api/vendors/upload/${token}/`);
+            const res  = await axios.get(`${PUBLIC_BASE}/api/vendors/upload/${token}/`);
             const data = res.data;
 
             setVendorInfo({
@@ -153,11 +152,8 @@ export default function VendorUpload() {
                 organization: data.organization_name,
             });
 
-            // backend key is `pending_documents`, NOT `documents`
             const docs = (data.pending_documents || []).map((d) => ({
                 ...d,
-                // status isn't returned by GET (all are pending by definition),
-                // but we set it explicitly so DocumentRow and StatusBadge work correctly
                 status: d.status || 'pending',
             }));
 
@@ -167,8 +163,6 @@ export default function VendorUpload() {
                 hadDocumentsRef.current = true;
             }
 
-            // show success when there are no more pending docs AND we know
-            // the vendor had documents to upload in the first place
             if (docs.length === 0 && hadDocumentsRef.current) {
                 setAllDone(true);
             }
@@ -187,9 +181,7 @@ export default function VendorUpload() {
         }
     };
 
-    useEffect(() => {
-        fetchData();
-    }, [token]);
+    useEffect(() => { fetchData(); }, [token]);
 
     if (loading) {
         return (
@@ -223,13 +215,13 @@ export default function VendorUpload() {
     if (allDone) return <SuccessScreen vendorName={vendorInfo?.name} />;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-gray-50">
+        // FIX: replaced bg-gradient-to-br with solid bg-gray-50
+        <div className="min-h-screen bg-gray-50">
 
-            {/* sticky header */}
             <header className="bg-white border-b sticky top-0 z-10">
                 <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-[#1a8f70] rounded-lg flex items-center justify-center flex-shrink-0">
+                        <div className="w-8 h-8 bg-[#1a8f70] rounded-lg flex items-center justify-center shrink-0">
                             <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                                     d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
@@ -252,10 +244,9 @@ export default function VendorUpload() {
 
             <div className="max-w-2xl mx-auto px-4 py-8">
 
-                {/* vendor welcome card */}
                 <div className="bg-white rounded-2xl border p-6 mb-6 shadow-sm">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                        <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center shrink-0">
                             <span className="text-2xl font-bold text-emerald-700">
                                 {(vendorInfo?.name || '?').charAt(0).toUpperCase()}
                             </span>
@@ -278,20 +269,17 @@ export default function VendorUpload() {
                     </div>
                 </div>
 
-                {/* instructions */}
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">
                     <p className="text-sm text-blue-800 font-medium mb-1">How it works</p>
                     <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
                         <li>Click "Choose file" next to each document type</li>
-                        <li>Select your file — accepted formats: PDF, JPG, PNG, DOCX</li>
+                        <li>Select your file — accepted: PDF, JPG, PNG, DOCX</li>
                         <li>Click Upload — CarbonSentry AI will verify it automatically</li>
                     </ol>
                 </div>
 
-                {/* document list */}
                 <div className="space-y-3">
                     <h2 className="font-semibold text-gray-800">Required Documents</h2>
-
                     {documents.length === 0 ? (
                         <div className="bg-white border rounded-xl p-8 text-center text-gray-400 text-sm">
                             No pending documents found for this link.
@@ -308,7 +296,6 @@ export default function VendorUpload() {
                     )}
                 </div>
 
-                {/* trust footer */}
                 <div className="mt-10 pt-6 border-t text-center space-y-2">
                     <div className="flex items-center justify-center gap-4 text-xs text-gray-400">
                         <span className="flex items-center gap-1">
