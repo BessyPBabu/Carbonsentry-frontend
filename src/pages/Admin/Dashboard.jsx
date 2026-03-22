@@ -35,28 +35,9 @@ export default function AdminDashboard() {
     const [highRiskList, setHighRiskList] = useState([]);
     const [recentActivity, setRecentActivity] = useState([]);
 
-    const [monitor, setMonitor] = useState(null);
-    const [monitorLoading, setMonitorLoading] = useState(true);
-    const [grafanaUrl, setGrafanaUrl] = useState(null);
-
     useEffect(() => {
         fetchDashboardData();
-        fetchMonitoringData();
     }, []);
-
-    const fetchMonitoringData = async () => {
-        try {
-            setMonitorLoading(true);
-            const res = await api.get("/ai-validation/monitoring/");
-            setMonitor(res.data.metrics);
-            setGrafanaUrl(res.data.grafana_url || null);
-        } catch (err) {
-            console.error("AdminDashboard.fetchMonitoringData:", err);
-            setMonitor(null);
-        } finally {
-            setMonitorLoading(false);
-        }
-    };
 
     const fetchDashboardData = async () => {
         try {
@@ -253,58 +234,9 @@ export default function AdminDashboard() {
                 />
             </div>
 
-            {/* AI Monitor + Risk Summary */}
+            {/* Risk Summary */}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-
-                <div className="bg-white rounded-lg border p-6">
-
-                    <div className="flex items-center justify-between mb-4">
-
-                        <h3 className="text-base font-semibold text-gray-900">
-                            AI System Monitor
-                        </h3>
-
-                        <div className="flex items-center gap-2">
-
-                            {grafanaUrl && (
-                                <a
-                                    href={grafanaUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-xs text-emerald-600 border border-emerald-200 px-2 py-1 rounded hover:bg-emerald-50 transition-colors"
-                                >
-                                    Open Grafana ↗
-                                </a>
-                            )}
-
-                            <button
-                                onClick={fetchMonitoringData}
-                                className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-50"
-                                title="Refresh metrics"
-                            >
-                                ↻
-                            </button>
-
-                        </div>
-                    </div>
-
-                    {monitorLoading ? (
-                        <div className="h-44 flex items-center justify-center text-gray-400 text-sm">
-                            Loading metrics…
-                        </div>
-                    ) : monitor ? (
-                        <AIMonitorPanel metrics={monitor} />
-                    ) : (
-                        <div className="h-44 flex flex-col items-center justify-center text-gray-400 text-sm gap-2">
-                            <span>Metrics unavailable</span>
-                            <span className="text-xs">
-                                Set PROMETHEUS_URL in .env to enable live data
-                            </span>
-                        </div>
-                    )}
-                </div>
-
+            <div className="mb-6">
                 <div className="bg-white rounded-lg border p-6">
                     <h3 className="text-base font-semibold text-gray-900 mb-4">
                         Risk Summary
@@ -395,141 +327,6 @@ export default function AdminDashboard() {
                 )}
             </div>
 
-        </div>
-    );
-}
-
-/* ---------------- AI Monitor Panel ---------------- */
-
-function AIMonitorPanel({ metrics }) {
-
-    const total =
-        (metrics?.validations_valid || 0) +
-        (metrics?.validations_invalid || 0) +
-        (metrics?.validations_review || 0) +
-        (metrics?.validations_failed || 0);
-
-    const geminiTotal =
-        (metrics?.gemini_success || 0) +
-        (metrics?.gemini_failed || 0);
-
-    const geminiSuccessPct =
-        geminiTotal > 0
-            ? Math.round((metrics.gemini_success / geminiTotal) * 100)
-            : null;
-
-    return (
-        <div className="space-y-4">
-
-            <div>
-                <p className="text-xs text-gray-500 uppercase font-medium mb-2">
-                    Validation pipeline
-                </p>
-
-                <div className="grid grid-cols-4 gap-2">
-
-                    <MiniStat
-                        label="Valid"
-                        value={metrics?.validations_valid ?? "—"}
-                        color="green"
-                    />
-
-                    <MiniStat
-                        label="Invalid"
-                        value={metrics?.validations_invalid ?? "—"}
-                        color="red"
-                    />
-
-                    <MiniStat
-                        label="Review"
-                        value={metrics?.validations_review ?? "—"}
-                        color="yellow"
-                    />
-
-                    <MiniStat
-                        label="Failed"
-                        value={metrics?.validations_failed ?? "—"}
-                        color="gray"
-                    />
-                </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 text-sm">
-
-                <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs text-gray-500 mb-1">
-                        Median confidence
-                    </p>
-
-                    <p className="text-xl font-bold text-gray-900">
-                        {metrics?.median_confidence != null
-                            ? `${metrics.median_confidence}%`
-                            : "—"}
-                    </p>
-                </div>
-
-                <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-xs text-gray-500 mb-1">
-                        P95 pipeline duration
-                    </p>
-
-                    <p className="text-xl font-bold text-gray-900">
-                        {metrics?.p95_duration_s != null
-                            ? `${metrics.p95_duration_s}s`
-                            : "—"}
-                    </p>
-                </div>
-
-            </div>
-
-            {geminiSuccessPct !== null && (
-                <div className="flex items-center justify-between text-sm">
-
-                    <span className="text-gray-600 text-xs">
-                        Gemini API success rate
-                    </span>
-
-                    <div className="flex items-center gap-2">
-
-                        <div className="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div
-                                className={`h-full rounded-full ${
-                                    geminiSuccessPct >= 90
-                                        ? "bg-green-500"
-                                        : geminiSuccessPct >= 70
-                                        ? "bg-yellow-500"
-                                        : "bg-red-500"
-                                }`}
-                                style={{ width: `${geminiSuccessPct}%` }}
-                            />
-                        </div>
-
-                        <span className="text-xs font-medium text-gray-700">
-                            {geminiSuccessPct}%
-                        </span>
-
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-}
-
-/* ---------------- Helper Components ---------------- */
-
-function MiniStat({ label, value, color = "gray" }) {
-
-    const colors = {
-        green: "text-green-600",
-        red: "text-red-600",
-        yellow: "text-yellow-600",
-        gray: "text-gray-700",
-    };
-
-    return (
-        <div className="bg-gray-50 rounded-lg p-2 text-center">
-            <p className={`text-lg font-bold ${colors[color]}`}>{value}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{label}</p>
         </div>
     );
 }
