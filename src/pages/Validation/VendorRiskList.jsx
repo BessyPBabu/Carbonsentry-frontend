@@ -12,6 +12,17 @@ const toDisplayScore = (score) => {
   if (isNaN(n)) return 'N/A';
   return (n / 20).toFixed(1);
 };
+// Derive badge level from numerical score — matches backend risk_score bands:
+//   0–25 → low | 26–50 → medium | 51–75 → high | 76–100 → critical
+const levelFromScore = (score) => {
+  if (score === null || score === undefined) return 'unknown';
+  const n = parseFloat(score);
+  if (isNaN(n)) return 'unknown';
+  if (n <= 25) return 'low';
+  if (n <= 50) return 'medium';
+  if (n <= 75) return 'high';
+  return 'critical';
+};
 
 // Risk bands as defined by backend _risk_level():
 //   low:      score 0-25   → display 0.0–1.2 / 5
@@ -141,19 +152,20 @@ const VendorRiskList = () => {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {riskProfiles.map((profile) => {
-                const displayScore  = toDisplayScore(profile.risk_score);
-                // Colour the score value to match the risk level so it's never confusing
-                const scoreColour =
-                  profile.risk_level === 'critical' ? 'text-red-700 font-bold' :
-                  profile.risk_level === 'high'     ? 'text-orange-600 font-semibold' :
-                  profile.risk_level === 'medium'   ? 'text-yellow-600' :
-                                                      'text-green-700';
+                const displayScore = toDisplayScore(profile.risk_score);
+                // Derive level from score — same logic as detail page and backend bands
+                const derivedLevel = levelFromScore(profile.risk_score);
+                const scoreColour  =
+                  derivedLevel === 'critical' ? 'text-red-700 font-bold' :
+                  derivedLevel === 'high'     ? 'text-orange-600 font-semibold' :
+                  derivedLevel === 'medium'   ? 'text-yellow-600' :
+                                               'text-green-700';
                 return (
                   <tr key={profile.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 font-medium text-gray-900">{profile.vendor_name}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{profile.vendor_industry || '—'}</td>
                     <td className="px-6 py-4">
-                      <RiskBadge level={profile.risk_level} />
+                      <RiskBadge level={derivedLevel} />
                     </td>
                     <td className={`px-6 py-4 text-sm ${scoreColour}`}>
                       {displayScore} / 5

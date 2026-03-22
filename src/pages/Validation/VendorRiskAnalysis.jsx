@@ -11,7 +11,7 @@ import { safeFloat }     from "../../utils/formatters";
 
 const RISK_SCORE_DISPLAY_DIVISOR = 20;
 
-// Must match backend constants.py DEFAULT_THRESHOLDS
+// Must match backend constants.py DEFAULT_THRESHOLDS exactly
 const INDUSTRY_THRESHOLDS = {
   Manufacturing: { low: 1000,  medium: 5000,  high: 15000, critical: 50000  },
   Technology:    { low: 300,   medium: 1500,  high: 5000,  critical: 12000  },
@@ -22,8 +22,27 @@ const INDUSTRY_THRESHOLDS = {
 };
 const DEFAULT_THRESHOLD = { low: 1000, medium: 5000, high: 10000, critical: 50000 };
 
-// Must match backend constants.py MIN_AUTO_APPROVE_CONFIDENCE
+// Matches backend MIN_AUTO_APPROVE_CONFIDENCE = 50
 const MIN_AUTO_APPROVE_CONFIDENCE = 50;
+
+/**
+ * Derive the risk level label from the numerical risk_score (0–100).
+ * This matches the backend _risk_score() bands:
+ *   0–25   → low      (0.0–1.2 / 5)
+ *   26–50  → medium   (1.3–2.5 / 5)
+ *   51–75  → high     (2.6–3.7 / 5)
+ *   76–100 → critical (3.8–5.0 / 5)
+ *
+ * We use this instead of riskProfile.risk_level because that field is set by
+ * the backend based on CO2 emissions thresholds alone, which can produce
+ * "medium" even for a vendor with a score of 1.0/5.
+ */
+const levelFromScore = (score) => {
+  if (score <= 25) return 'low';
+  if (score <= 50) return 'medium';
+  if (score <= 75) return 'high';
+  return 'critical';
+};
 
 const VendorRiskAnalysis = () => {
   const { vendorId } = useParams();
@@ -57,9 +76,9 @@ const VendorRiskAnalysis = () => {
   const calculateRiskFactors = () => {
     if (!riskProfile) return [];
 
-    const now    = new Date();
-    const in30d  = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-    const in90d  = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+    const now   = new Date();
+    const in30d = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const in90d = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
     const factors = [];
 
     // ── 1. Document expiry ───────────────────────────────────────────────────
@@ -107,8 +126,7 @@ const VendorRiskAnalysis = () => {
     }
 
     // ── 2. AI confidence ─────────────────────────────────────────────────────
-    // Only evaluate when we actually have confidence data — null/0 means
-    // no documents have been validated yet, not that confidence is bad.
+    // null confidence means no validated docs yet — not a risk signal
     const rawConfidence = riskProfile.avg_document_confidence;
     if (rawConfidence === null || rawConfidence === undefined || riskProfile.validated_documents === 0) {
       factors.push({
@@ -183,11 +201,7 @@ const VendorRiskAnalysis = () => {
     const flaggedRatio = total > 0 ? (flagged / total) * 100 : 0;
 
     if (total === 0) {
-      factors.push({
-        title: "Document Quality Risk",
-        description: "No documents uploaded yet",
-        type: "low",
-      });
+      factors.push({ title: "Document Quality Risk", description: "No documents uploaded yet", type: "low" });
     } else if (flaggedRatio > 50) {
       factors.push({
         title: "Document Quality Risk",
@@ -211,7 +225,7 @@ const VendorRiskAnalysis = () => {
     return factors;
   };
 
-  const generateRecommendedActions = () => {
+  const generateRecommendedActions = (derivedLevel) => {
     if (!riskProfile) return [];
     const actions = [];
 
@@ -231,7 +245,8 @@ const VendorRiskAnalysis = () => {
       }
     }
 
-    if (["high", "critical"].includes(riskProfile.risk_level)) {
+    // Use the score-derived level so recommendations are consistent with the badge
+    if (["high", "critical"].includes(derivedLevel)) {
       actions.push("Schedule immediate compliance audit");
       actions.push("Escalate to senior management for review");
     }
@@ -240,9 +255,8 @@ const VendorRiskAnalysis = () => {
       actions.push("Request emission reduction plan from vendor");
     }
 
-    const total        = riskProfile.total_documents   || 0;
-    const flaggedRatio = total > 0
-      ? (riskProfile.flagged_documents / total) * 100 : 0;
+    const total        = riskProfile.total_documents || 0;
+    const flaggedRatio = total > 0 ? (riskProfile.flagged_documents / total) * 100 : 0;
     if (flaggedRatio > 30) {
       actions.push("Increase document verification frequency to quarterly");
     }
@@ -278,9 +292,14 @@ const VendorRiskAnalysis = () => {
     ai_confidence_avg: riskProfile.avg_document_confidence,
   };
 
-  const riskFactors        = calculateRiskFactors();
-  const recommendedActions = generateRecommendedActions();
-  const displayScore       = (safeFloat(riskProfile.risk_score) / RISK_SCORE_DISPLAY_DIVISOR).toFixed(1);
+  const riskFactors = calculateRiskFactors();
+
+  // Derive level from score — this is what the user sees and must be consistent
+  const rawScore     = safeFloat(riskProfile.risk_score);   // 0–100
+  const displayScore = (rawScore / RISK_SCORE_DISPLAY_DIVISOR).toFixed(1); // X.X out of 5
+  const derivedLevel = levelFromScore(rawScore);
+
+  const recommendedActions = generateRecommendedActions(derivedLevel);
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
@@ -312,7 +331,13 @@ const VendorRiskAnalysis = () => {
               {riskProfile.vendor_industry || "Industry Not Specified"}
             </p>
           </div>
-          <RiskBadge level={riskProfile.risk_level} />
+          {/* Badge derived from score, not backend risk_level field */}
+          <div className="flex flex-col items-end gap-1">
+            <RiskBadge level={derivedLevel} />
+            <span className="text-xs text-gray-400">
+              Score: {displayScore} / 5
+            </span>
+          </div>
         </div>
       </div>
 
