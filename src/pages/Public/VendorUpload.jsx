@@ -21,9 +21,17 @@ function StatusBadge({ status }) {
 }
 
 function DocumentRow({ doc, token, onUploaded }) {
-    const [file, setFile]         = useState(null);
+    const [file, setFile]           = useState(null);
     const [uploading, setUploading] = useState(false);
+    const [uploaded, setUploaded]   = useState(false);  // ← per-row success flag
     const inputRef = useRef(null);
+
+    // If the document was already uploaded before this render cycle, show success immediately
+    useEffect(() => {
+        if (doc.status === 'uploaded' || doc.status === 'valid') {
+            setUploaded(true);
+        }
+    }, [doc.status]);
 
     const handleUpload = async () => {
         if (!file) return;
@@ -39,10 +47,10 @@ function DocumentRow({ doc, token, onUploaded }) {
                 { headers: { 'Content-Type': 'multipart/form-data' } }
             );
 
-            toast.success(`${doc.document_type} uploaded successfully`);
+            setUploaded(true);
             setFile(null);
             if (inputRef.current) inputRef.current.value = '';
-            onUploaded();
+            onUploaded(doc.id);   // notify parent which doc just finished
         } catch (err) {
             const msg =
                 err?.response?.data?.detail ||
@@ -54,6 +62,27 @@ function DocumentRow({ doc, token, onUploaded }) {
         }
     };
 
+    // ── Uploaded success state ────────────────────────────────────────────────
+    if (uploaded) {
+        return (
+            <div className="border border-emerald-200 rounded-xl p-4 bg-emerald-50 flex items-center gap-3">
+                <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
+                    <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                    <p className="font-medium text-emerald-800 truncate">{doc.document_type}</p>
+                    <p className="text-xs text-emerald-600 mt-0.5">Uploaded successfully — AI validation in progress</p>
+                </div>
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full border border-emerald-300 bg-white text-emerald-700 shrink-0">
+                    Uploaded
+                </span>
+            </div>
+        );
+    }
+
+    // ── Default upload state ──────────────────────────────────────────────────
     return (
         <div className="border rounded-xl p-4 bg-white">
             <div className="flex items-start justify-between gap-3">
@@ -86,7 +115,15 @@ function DocumentRow({ doc, token, onUploaded }) {
                         hover:bg-[#157a5f] disabled:opacity-40 disabled:cursor-not-allowed
                         transition-colors shrink-0"
                 >
-                    {uploading ? 'Uploading…' : 'Upload'}
+                    {uploading ? (
+                        <span className="flex items-center gap-1.5">
+                            <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                            </svg>
+                            Uploading…
+                        </span>
+                    ) : 'Upload'}
                 </button>
             </div>
 
@@ -99,9 +136,8 @@ function DocumentRow({ doc, token, onUploaded }) {
     );
 }
 
-function SuccessScreen({ vendorName }) {
+function SuccessScreen({ vendorName, uploadedDocs }) {
     return (
-        // FIX: replaced bg-gradient-to-br with solid bg-white
         <div className="min-h-screen bg-white flex items-center justify-center px-4">
             <div className="max-w-md w-full text-center">
                 <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -109,22 +145,40 @@ function SuccessScreen({ vendorName }) {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Documents Submitted</h2>
+
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">All Documents Submitted</h2>
                 <p className="text-gray-600 mb-6">
-                    Thank you, <strong>{vendorName}</strong>. Your compliance documents have been
+                    Thank you, <strong>{vendorName}</strong>. All your compliance documents have been
                     received and are being reviewed by CarbonSentry AI.
                 </p>
-                <div className="bg-gray-50 border rounded-xl p-4 text-left space-y-2 mb-6">
+
+                {/* List every uploaded document */}
+                <div className="bg-gray-50 border rounded-xl p-4 text-left space-y-2 mb-4">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                        Documents submitted
+                    </p>
+                    {uploadedDocs.map((name, i) => (
+                        <div key={i} className="flex items-center gap-2 text-sm text-gray-700">
+                            <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>{name}</span>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-left space-y-2 mb-6">
                     {[
                         'Documents securely received',
                         'AI validation in progress',
                         'Your compliance officer will be notified',
                     ].map((line) => (
                         <div key={line} className="flex items-center gap-2 text-sm text-gray-700">
-                            <span className="text-emerald-500">✓</span> {line}
+                            <span className="text-blue-500">→</span> {line}
                         </div>
                     ))}
                 </div>
+
                 <p className="text-xs text-gray-400">Powered by CarbonSentry · Secure Carbon Compliance Platform</p>
             </div>
         </div>
@@ -138,9 +192,10 @@ export default function VendorUpload() {
     const [error, setError]           = useState(null);
     const [vendorInfo, setVendorInfo] = useState(null);
     const [documents, setDocuments]   = useState([]);
-    const [allDone, setAllDone]       = useState(false);
 
-    const hadDocumentsRef = useRef(false);
+    // Track which doc IDs have been uploaded in this session
+    const [uploadedIds, setUploadedIds]     = useState(new Set());
+    const [uploadedNames, setUploadedNames] = useState([]);
 
     const fetchData = async () => {
         try {
@@ -158,14 +213,6 @@ export default function VendorUpload() {
             }));
 
             setDocuments(docs);
-
-            if (docs.length > 0) {
-                hadDocumentsRef.current = true;
-            }
-
-            if (docs.length === 0 && hadDocumentsRef.current) {
-                setAllDone(true);
-            }
         } catch (err) {
             const msg = err?.response?.data?.detail || err?.response?.data?.error;
             if (err?.response?.status === 404 || msg?.toLowerCase().includes('expired')) {
@@ -182,6 +229,21 @@ export default function VendorUpload() {
     };
 
     useEffect(() => { fetchData(); }, [token]);
+
+    // Called by DocumentRow when a specific doc finishes uploading
+    const handleDocUploaded = (docId) => {
+        const doc = documents.find((d) => d.id === docId);
+
+        setUploadedIds((prev) => new Set([...prev, docId]));
+        if (doc) {
+            setUploadedNames((prev) => [...prev, doc.document_type]);
+        }
+    };
+
+    // All documents done = every document in the list has been uploaded this session
+    const allUploaded =
+        documents.length > 0 &&
+        documents.every((d) => uploadedIds.has(d.id));
 
     if (loading) {
         return (
@@ -212,10 +274,14 @@ export default function VendorUpload() {
         );
     }
 
-    if (allDone) return <SuccessScreen vendorName={vendorInfo?.name} />;
+    // Show success screen only once EVERY document has been uploaded
+    if (allUploaded) {
+        return <SuccessScreen vendorName={vendorInfo?.name} uploadedDocs={uploadedNames} />;
+    }
+
+    const pendingCount = documents.filter((d) => !uploadedIds.has(d.id)).length;
 
     return (
-        // FIX: replaced bg-gradient-to-br with solid bg-gray-50
         <div className="min-h-screen bg-gray-50">
 
             <header className="bg-white border-b sticky top-0 z-10">
@@ -262,9 +328,15 @@ export default function VendorUpload() {
                     </div>
 
                     <div className="mt-4 pt-4 border-t flex items-center gap-6 text-sm">
+                        {uploadedIds.size > 0 && (
+                            <div className="flex items-center gap-1.5 text-emerald-600">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                                {uploadedIds.size} uploaded
+                            </div>
+                        )}
                         <div className="flex items-center gap-1.5 text-gray-600">
                             <span className="w-2 h-2 rounded-full bg-orange-400" />
-                            {documents.length} document{documents.length !== 1 ? 's' : ''} awaiting upload
+                            {pendingCount} remaining
                         </div>
                     </div>
                 </div>
@@ -290,7 +362,7 @@ export default function VendorUpload() {
                                 key={doc.id}
                                 doc={doc}
                                 token={token}
-                                onUploaded={fetchData}
+                                onUploaded={handleDocUploaded}
                             />
                         ))
                     )}

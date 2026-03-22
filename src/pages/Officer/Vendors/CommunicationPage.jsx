@@ -40,19 +40,16 @@ export default function CommunicationPage() {
     const wsRef = useRef(null);
     const messagesEndRef = useRef(null);
 
-    
     useEffect(() => {
         loadChatList();
     }, []);
 
-    
     useEffect(() => {
         if (!activeVendorId) return;
         loadMessages(activeVendorId);
         openSocket(activeVendorId);
 
         return () => {
-            
             if (wsRef.current) {
                 wsRef.current.close();
                 wsRef.current = null;
@@ -60,7 +57,6 @@ export default function CommunicationPage() {
         };
     }, [activeVendorId]);
 
-    
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
@@ -71,7 +67,6 @@ export default function CommunicationPage() {
             const list = await communicationService.getChatList();
             setChatList(list);
 
-            
             if (!activeVendorId && list.length > 0) {
                 selectVendor(list[0].vendor_id, list[0].vendor_name);
             }
@@ -96,22 +91,29 @@ export default function CommunicationPage() {
     };
 
     const openSocket = (vid) => {
-        
         if (wsRef.current) {
             wsRef.current.close();
         }
 
+        // Only show "connection lost" if the socket was previously open.
+        // Prevents the error toast firing on the very first connection attempt.
+        let wasConnected = false;
+
         const ws = communicationService.openOfficerSocket(vid, {
-            onOpen: () => setConnected(true),
+            onOpen: () => {
+                wasConnected = true;
+                setConnected(true);
+            },
             onClose: () => setConnected(false),
             onError: () => {
                 setConnected(false);
-                toast.error('Connection lost. Trying to reconnect...');
+                if (wasConnected) {
+                    toast.error('Connection lost. Trying to reconnect...');
+                }
             },
             onMessage: (data) => {
                 if (data.type === 'chat_message') {
                     setMessages(prev => {
-                        
                         const exists = prev.some(m => m.id === data.id);
                         if (exists) return prev;
                         return [...prev, {
@@ -164,7 +166,7 @@ export default function CommunicationPage() {
             toast.success(res.message || 'Invitation sent');
             setShowInviteModal(false);
             setInviteEmail('');
-            loadChatList(); 
+            loadChatList();
         } catch (err) {
             console.error('CommunicationPage.handleSendInvite:', err);
             toast.error(err.response?.data?.error || 'Failed to send invitation');
@@ -241,7 +243,7 @@ export default function CommunicationPage() {
                                 <div className="flex items-center gap-1">
                                     <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-400' : 'bg-gray-300'}`} />
                                     <span className="text-xs text-gray-400">
-                                        {connected ? 'Connected' : 'Reconnecting...'}
+                                        {connected ? 'Connected' : 'Connecting...'}
                                     </span>
                                 </div>
                             </div>
@@ -308,7 +310,6 @@ export default function CommunicationPage() {
 
                     {/* Input area */}
                     <div className="px-6 py-4 bg-white border-t shrink-0">
-                        {/* message type toggle */}
                         <div className="flex gap-2 mb-3">
                             <button
                                 onClick={() => setMessageType('vendor_message')}

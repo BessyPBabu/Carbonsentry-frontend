@@ -7,44 +7,52 @@ import ReviewDetailsPanel from '../../components/Validation/ReviewDetailsPanel';
 
 const PAGE_SIZE = 10;
 
-const AIReviewQueue = () => {
-  const [reviews, setReviews] = useState([]);
-  const [selectedReview, setSelectedReview] = useState(null);
-  const [loading, setLoading] = useState(true);
+// Maps review priority → risk impact label shown in the table.
+// "priority" comes from the backend _get_priority() which sets:
+//   high   → 3+ red flags OR confidence < 40
+//   medium → confidence < MIN_AUTO_APPROVE_CONFIDENCE (50)
+//   low    → otherwise
+const getRiskImpact = (review) => {
+  if (review.priority === 'high')   return 'high';
+  if (review.priority === 'medium') return 'medium';
+  return 'low';
+};
 
-  
-  const [page, setPage] = useState(1);
+const AIReviewQueue = () => {
+  const [reviews, setReviews]             = useState([]);
+  const [selectedReview, setSelectedReview] = useState(null);
+  const [loading, setLoading]             = useState(true);
+
+  const [page, setPage]             = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
-  useEffect(() => {
-    fetchReviews();
-  }, [page]); 
+  useEffect(() => { fetchReviews(); }, [page]);
 
   const fetchReviews = async () => {
     try {
-        setLoading(true);
-        const res = await validationService.getReviewQueue({
-            page,
-            page_size: PAGE_SIZE,
-            status: 'pending',
-        });
+      setLoading(true);
+      const res = await validationService.getReviewQueue({
+        page,
+        page_size: PAGE_SIZE,
+        status: 'pending',
+      });
 
-        const list  = res?.results ?? (Array.isArray(res) ? res : []);
-        const count = res?.count   ?? list.length;
+      const list  = res?.results ?? (Array.isArray(res) ? res : []);
+      const count = res?.count   ?? list.length;
 
-        setReviews(list);
-        setTotalCount(count);
-        setTotalPages(Math.ceil(count / PAGE_SIZE));
+      setReviews(list);
+      setTotalCount(count);
+      setTotalPages(Math.ceil(count / PAGE_SIZE));
 
-        // auto-select first item only on initial load
-        if (list.length > 0 && !selectedReview) {
-            setSelectedReview(list[0]);
-        }
+      // Auto-select first item on initial load only
+      if (list.length > 0 && !selectedReview) {
+        setSelectedReview(list[0]);
+      }
     } catch (err) {
-        console.error('AIReviewQueue.fetchReviews:', err);
+      console.error('AIReviewQueue.fetchReviews:', err);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
@@ -64,12 +72,6 @@ const AIReviewQueue = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const getRiskImpact = (review) => {
-    if (review.priority === 'high') return 'high';
-    if (review.priority === 'medium') return 'medium';
-    return 'low';
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -85,7 +87,9 @@ const AIReviewQueue = () => {
         <h1 className="text-3xl font-bold text-gray-900">AI Review Queue</h1>
         <p className="text-gray-600 mt-2">Human validation for AI-flagged documents</p>
         {totalCount > 0 && (
-          <p className="text-sm text-gray-400 mt-1">{totalCount} item{totalCount !== 1 ? 's' : ''} awaiting review</p>
+          <p className="text-sm text-gray-400 mt-1">
+            {totalCount} item{totalCount !== 1 ? 's' : ''} awaiting review
+          </p>
         )}
       </div>
 
@@ -95,29 +99,16 @@ const AIReviewQueue = () => {
         </div>
       ) : (
         <>
-          {/* Table */}
           <div className="bg-white border rounded-lg overflow-hidden mb-4">
             <table className="w-full">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Vendor
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Document
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    AI Issue
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Confidence
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Risk Impact
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Action
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Document</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AI Issue</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Confidence</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -135,27 +126,21 @@ const AIReviewQueue = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                       {review.validation?.document_name}
                     </td>
-                    <td className="px-6 py-4 text-sm">
-                      <span className="text-yellow-700">
-                        {review.reason?.replace(/_/g, ' ')}
-                      </span>
+                    <td className="px-6 py-4 text-sm text-yellow-700 max-w-xs">
+                      {review.reason?.replace(/_/g, ' ')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <ConfidenceBadge
-                        confidence={review.validation?.overall_confidence || 0}
-                      />
+                      <ConfidenceBadge confidence={review.validation?.overall_confidence || 0} />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <RiskBadge level={getRiskImpact(review)} />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {/*  Button component */}
                       <button
                         className="px-3 py-1.5 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedReview(review);
-                          
                           setTimeout(() => {
                             document.getElementById('review-panel')?.scrollIntoView({ behavior: 'smooth' });
                           }, 100);
@@ -170,21 +155,13 @@ const AIReviewQueue = () => {
             </table>
           </div>
 
-          {/* Pagination  */}
           <div className="flex items-center justify-between mb-8 text-sm text-gray-500">
-            <span>
-              Page {page} of {totalPages} — {totalCount} total
-            </span>
-            <Pagination
-              page={page}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-            />
+            <span>Page {page} of {totalPages} — {totalCount} total</span>
+            <Pagination page={page} totalPages={totalPages} onPageChange={handlePageChange} />
           </div>
         </>
       )}
 
-      {/* Review Details Panel */}
       <div id="review-panel">
         <ReviewDetailsPanel review={selectedReview} onResolve={handleResolve} />
       </div>

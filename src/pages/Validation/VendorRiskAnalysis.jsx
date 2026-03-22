@@ -11,14 +11,19 @@ import { safeFloat }     from "../../utils/formatters";
 
 const RISK_SCORE_DISPLAY_DIVISOR = 20;
 
+// Must match backend constants.py DEFAULT_THRESHOLDS
 const INDUSTRY_THRESHOLDS = {
-  Manufacturing: { low: 1000, medium: 5000,  high: 10000 },
-  Technology:    { low: 500,  medium: 2000,  high: 5000  },
-  Retail:        { low: 300,  medium: 1500,  high: 3000  },
-  Logistics:     { low: 2000, medium: 10000, high: 20000 },
-  Energy:        { low: 5000, medium: 20000, high: 50000 },
+  Manufacturing: { low: 1000,  medium: 5000,  high: 15000, critical: 50000  },
+  Technology:    { low: 300,   medium: 1500,  high: 5000,  critical: 12000  },
+  Retail:        { low: 300,   medium: 1500,  high: 3000,  critical: 8000   },
+  Logistics:     { low: 2000,  medium: 10000, high: 30000, critical: 100000 },
+  Energy:        { low: 5000,  medium: 20000, high: 80000, critical: 250000 },
+  Healthcare:    { low: 400,   medium: 2000,  high: 7000,  critical: 20000  },
 };
-const DEFAULT_THRESHOLD = { low: 1000, medium: 5000, high: 10000 };
+const DEFAULT_THRESHOLD = { low: 1000, medium: 5000, high: 10000, critical: 50000 };
+
+// Must match backend constants.py MIN_AUTO_APPROVE_CONFIDENCE
+const MIN_AUTO_APPROVE_CONFIDENCE = 50;
 
 const VendorRiskAnalysis = () => {
   const { vendorId } = useParams();
@@ -29,7 +34,7 @@ const VendorRiskAnalysis = () => {
   const [latestReview, setLatestReview] = useState(null);
   const [loading,      setLoading]      = useState(true);
 
-  useEffect(() => { fetchAllData(); }, [vendorId]);   // eslint-disable-line
+  useEffect(() => { fetchAllData(); }, [vendorId]); // eslint-disable-line
 
   const fetchAllData = async () => {
     try {
@@ -49,19 +54,27 @@ const VendorRiskAnalysis = () => {
     }
   };
 
-  // FIX: all parseFloat calls replaced with safeFloat to prevent NaN propagation
   const calculateRiskFactors = () => {
-    if (!validations.length || !riskProfile) return [];
+    if (!riskProfile) return [];
 
-    const now     = new Date();
-    const in30d   = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const now    = new Date();
+    const in30d  = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const in90d  = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
     const factors = [];
 
-    const expiredDocs   = validations.filter((v) => v.metadata?.expiry_date && new Date(v.metadata.expiry_date) < now);
-    const expiringSoon  = validations.filter((v) => {
+    // ── 1. Document expiry ───────────────────────────────────────────────────
+    const expiredDocs  = validations.filter(
+      (v) => v.metadata?.expiry_date && new Date(v.metadata.expiry_date) < now
+    );
+    const expiringSoon = validations.filter((v) => {
       if (!v.metadata?.expiry_date) return false;
       const d = new Date(v.metadata.expiry_date);
       return d > now && d < in30d;
+    });
+    const expiringIn90 = validations.filter((v) => {
+      if (!v.metadata?.expiry_date) return false;
+      const d = new Date(v.metadata.expiry_date);
+      return d >= in30d && d < in90d;
     });
 
     if (expiredDocs.length > 0) {
@@ -70,7 +83,7 @@ const VendorRiskAnalysis = () => {
       );
       factors.push({
         title: "Document Expiry Risk",
-        description: `${expiredDocs.length} certificate(s) expired. Latest: ${new Date(latest.metadata.expiry_date).toLocaleDateString()}`,
+        description: `${expiredDocs.length} certificate(s) expired. Latest expired: ${new Date(latest.metadata.expiry_date).toLocaleDateString()}`,
         type: "high",
       });
     } else if (expiringSoon.length > 0) {
@@ -79,42 +92,120 @@ const VendorRiskAnalysis = () => {
         description: `${expiringSoon.length} certificate(s) expiring within 30 days`,
         type: "medium",
       });
+    } else if (expiringIn90.length > 0) {
+      factors.push({
+        title: "Document Expiry Risk",
+        description: `${expiringIn90.length} certificate(s) expiring within 90 days`,
+        type: "medium",
+      });
     } else {
-      factors.push({ title: "Document Expiry Risk", description: "All certificates valid and not expiring soon", type: "low" });
+      factors.push({
+        title: "Document Expiry Risk",
+        description: "All certificates valid and not expiring soon",
+        type: "low",
+      });
     }
 
-    // FIX: safeFloat returns 0 instead of NaN when value is null/undefined/""
-    const avgConfidence = safeFloat(riskProfile.avg_document_confidence);
-    if (avgConfidence < 50) {
-      factors.push({ title: "AI Confidence Risk", description: `Very low extraction confidence (${avgConfidence.toFixed(0)}%)`, type: "high" });
-    } else if (avgConfidence < 70) {
-      factors.push({ title: "AI Confidence Risk", description: `Below auto-approval threshold (${avgConfidence.toFixed(0)}%)`, type: "medium" });
+    // ── 2. AI confidence ─────────────────────────────────────────────────────
+    // Only evaluate when we actually have confidence data — null/0 means
+    // no documents have been validated yet, not that confidence is bad.
+    const rawConfidence = riskProfile.avg_document_confidence;
+    if (rawConfidence === null || rawConfidence === undefined || riskProfile.validated_documents === 0) {
+      factors.push({
+        title: "AI Confidence Risk",
+        description: "No validated documents yet — confidence not available",
+        type: "low",
+      });
     } else {
-      factors.push({ title: "AI Confidence Risk", description: `High extraction confidence (${avgConfidence.toFixed(0)}%)`, type: "low" });
-    }
-
-    if (riskProfile.total_co2_emissions) {
-      const emissions = safeFloat(riskProfile.total_co2_emissions);
-      const threshold = INDUSTRY_THRESHOLDS[riskProfile.vendor_industry] || DEFAULT_THRESHOLD;
-      if (emissions > threshold.high) {
-        factors.push({ title: "Emissions Level Risk", description: `Total emissions (${emissions.toLocaleString()} t) exceed high threshold`, type: "high" });
-      } else if (emissions > threshold.medium) {
-        factors.push({ title: "Emissions Level Risk", description: `Total emissions (${emissions.toLocaleString()} t) above medium threshold`, type: "medium" });
+      const avgConfidence = safeFloat(rawConfidence);
+      if (avgConfidence < MIN_AUTO_APPROVE_CONFIDENCE) {
+        factors.push({
+          title: "AI Confidence Risk",
+          description: `Low extraction confidence (${avgConfidence.toFixed(0)}%) — below auto-approval threshold of ${MIN_AUTO_APPROVE_CONFIDENCE}%`,
+          type: "high",
+        });
+      } else if (avgConfidence < 70) {
+        factors.push({
+          title: "AI Confidence Risk",
+          description: `Moderate extraction confidence (${avgConfidence.toFixed(0)}%)`,
+          type: "medium",
+        });
       } else {
-        factors.push({ title: "Emissions Level Risk", description: `Emissions within acceptable range (${emissions.toLocaleString()} t)`, type: "low" });
+        factors.push({
+          title: "AI Confidence Risk",
+          description: `Good extraction confidence (${avgConfidence.toFixed(0)}%)`,
+          type: "low",
+        });
       }
     }
 
-    const flaggedRatio = riskProfile.total_documents > 0
-      ? (riskProfile.flagged_documents / riskProfile.total_documents) * 100
-      : 0;
+    // ── 3. Emissions level ───────────────────────────────────────────────────
+    if (riskProfile.total_co2_emissions) {
+      const emissions = safeFloat(riskProfile.total_co2_emissions);
+      const threshold = INDUSTRY_THRESHOLDS[riskProfile.vendor_industry] || DEFAULT_THRESHOLD;
 
-    if (flaggedRatio > 50) {
-      factors.push({ title: "Document Quality Risk", description: `${flaggedRatio.toFixed(0)}% of documents flagged for manual review`, type: "high" });
-    } else if (flaggedRatio > 20) {
-      factors.push({ title: "Document Quality Risk", description: `${flaggedRatio.toFixed(0)}% of documents flagged`, type: "medium" });
+      if (emissions > threshold.critical) {
+        factors.push({
+          title: "Emissions Level Risk",
+          description: `Total emissions (${emissions.toLocaleString()} t) exceed critical threshold (${threshold.critical.toLocaleString()} t)`,
+          type: "high",
+        });
+      } else if (emissions > threshold.high) {
+        factors.push({
+          title: "Emissions Level Risk",
+          description: `Total emissions (${emissions.toLocaleString()} t) exceed high threshold (${threshold.high.toLocaleString()} t)`,
+          type: "high",
+        });
+      } else if (emissions > threshold.medium) {
+        factors.push({
+          title: "Emissions Level Risk",
+          description: `Total emissions (${emissions.toLocaleString()} t) above medium threshold (${threshold.medium.toLocaleString()} t)`,
+          type: "medium",
+        });
+      } else {
+        factors.push({
+          title: "Emissions Level Risk",
+          description: `Emissions within acceptable range (${emissions.toLocaleString()} t)`,
+          type: "low",
+        });
+      }
     } else {
-      factors.push({ title: "Document Quality Risk", description: `Low flagged rate (${flaggedRatio.toFixed(0)}%)`, type: "low" });
+      factors.push({
+        title: "Emissions Level Risk",
+        description: "No emissions data extracted yet",
+        type: "low",
+      });
+    }
+
+    // ── 4. Document quality (flagged ratio) ──────────────────────────────────
+    const total        = riskProfile.total_documents   || 0;
+    const flagged      = riskProfile.flagged_documents || 0;
+    const flaggedRatio = total > 0 ? (flagged / total) * 100 : 0;
+
+    if (total === 0) {
+      factors.push({
+        title: "Document Quality Risk",
+        description: "No documents uploaded yet",
+        type: "low",
+      });
+    } else if (flaggedRatio > 50) {
+      factors.push({
+        title: "Document Quality Risk",
+        description: `${flaggedRatio.toFixed(0)}% of documents flagged for manual review (${flagged} of ${total})`,
+        type: "high",
+      });
+    } else if (flaggedRatio > 20) {
+      factors.push({
+        title: "Document Quality Risk",
+        description: `${flaggedRatio.toFixed(0)}% of documents flagged (${flagged} of ${total})`,
+        type: "medium",
+      });
+    } else {
+      factors.push({
+        title: "Document Quality Risk",
+        description: `Low flagged rate — ${flaggedRatio.toFixed(0)}% (${flagged} of ${total} documents)`,
+        type: "low",
+      });
     }
 
     return factors;
@@ -124,27 +215,43 @@ const VendorRiskAnalysis = () => {
     if (!riskProfile) return [];
     const actions = [];
 
-    const now        = new Date();
-    const expiredDocs = validations.filter((v) => v.metadata?.expiry_date && new Date(v.metadata.expiry_date) < now);
-    if (expiredDocs.length > 0) actions.push("Request updated carbon certificates for expired documents");
+    const now         = new Date();
+    const expiredDocs = validations.filter(
+      (v) => v.metadata?.expiry_date && new Date(v.metadata.expiry_date) < now
+    );
+    if (expiredDocs.length > 0) {
+      actions.push("Request updated carbon certificates for expired documents");
+    }
 
-    const avgConfidence = safeFloat(riskProfile.avg_document_confidence);
-    if (avgConfidence > 0 && avgConfidence < 70) actions.push("Review flagged documents and request higher-quality scans");
+    const rawConfidence = riskProfile.avg_document_confidence;
+    if (rawConfidence !== null && rawConfidence !== undefined) {
+      const avgConfidence = safeFloat(rawConfidence);
+      if (avgConfidence > 0 && avgConfidence < 70) {
+        actions.push("Review flagged documents and request higher-quality scans");
+      }
+    }
 
     if (["high", "critical"].includes(riskProfile.risk_level)) {
       actions.push("Schedule immediate compliance audit");
       actions.push("Escalate to senior management for review");
     }
-    if (riskProfile.exceeds_threshold) actions.push("Request emission reduction plan from vendor");
 
-    const flaggedRatio = riskProfile.total_documents > 0
-      ? (riskProfile.flagged_documents / riskProfile.total_documents) * 100 : 0;
-    if (flaggedRatio > 30) actions.push("Increase document verification frequency to quarterly");
+    if (riskProfile.exceeds_threshold) {
+      actions.push("Request emission reduction plan from vendor");
+    }
+
+    const total        = riskProfile.total_documents   || 0;
+    const flaggedRatio = total > 0
+      ? (riskProfile.flagged_documents / total) * 100 : 0;
+    if (flaggedRatio > 30) {
+      actions.push("Increase document verification frequency to quarterly");
+    }
 
     if (actions.length === 0) {
       actions.push("Continue standard monitoring procedures");
       actions.push("Annual compliance review scheduled");
     }
+
     return actions;
   };
 
@@ -158,22 +265,22 @@ const VendorRiskAnalysis = () => {
 
   if (!riskProfile) {
     return (
-      <div className="max-w-7xl mx-auto px-6 py-8 text-center
-        text-gray-500 dark:text-gray-400">
+      <div className="max-w-7xl mx-auto px-6 py-8 text-center text-gray-500 dark:text-gray-400">
         No risk data available for this vendor
       </div>
     );
   }
 
   const complianceStats = {
-    documents_valid:    riskProfile.validated_documents,
-    expired_missing:    riskProfile.total_documents - riskProfile.validated_documents,
-    ai_confidence_avg:  riskProfile.avg_document_confidence,
+    documents_valid:   riskProfile.validated_documents,
+    flagged_documents: riskProfile.flagged_documents,
+    total_documents:   riskProfile.total_documents,
+    ai_confidence_avg: riskProfile.avg_document_confidence,
   };
 
-  const riskFactors         = calculateRiskFactors();
-  const recommendedActions  = generateRecommendedActions();
-  const displayScore        = (safeFloat(riskProfile.risk_score) / RISK_SCORE_DISPLAY_DIVISOR).toFixed(1);
+  const riskFactors        = calculateRiskFactors();
+  const recommendedActions = generateRecommendedActions();
+  const displayScore       = (safeFloat(riskProfile.risk_score) / RISK_SCORE_DISPLAY_DIVISOR).toFixed(1);
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
