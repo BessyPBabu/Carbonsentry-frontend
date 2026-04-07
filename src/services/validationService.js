@@ -61,13 +61,15 @@ export const validationService = {
 
   getLatestReviewByVendor: async (vendorId) => {
     const response = await api.get('/ai-validation/manual-reviews/', {
-      params: { 
-        vendor: vendorId,
-        status: 'resolved',
-        ordering: '-resolved_at'
-      }
+      params: { vendor: vendorId, status: 'resolved' }
     });
     const reviews = response.data.results || response.data;
+    // sort descending by resolved_at then created_at as fallback
+    reviews.sort((a, b) => {
+      const da = new Date(a.resolved_at || a.created_at);
+      const db = new Date(b.resolved_at || b.created_at);
+      return db - da;
+    });
     return reviews.length > 0 ? reviews[0] : null;
   }
 };

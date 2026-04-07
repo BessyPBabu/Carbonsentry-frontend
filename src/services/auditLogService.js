@@ -4,12 +4,13 @@ const auditLogService = {
 
     getLogs: async (filters = {}) => {
         const params = {};
-        if (filters.action)      params.action = filters.action;
-        if (filters.actor)       params.actor = filters.actor;
-        if (filters.entityType)  params.entity_type = filters.entityType;
-        if (filters.dateFrom)    params.date_from = filters.dateFrom;
-        if (filters.dateTo)      params.date_to = filters.dateTo;
-        if (filters.page)        params.page = filters.page;
+        if (filters.action)     params.action      = filters.action;
+        if (filters.actor)      params.actor       = filters.actor;
+        if (filters.entityType) params.entity_type = filters.entityType;
+        if (filters.dateFrom)   params.date_from   = filters.dateFrom;
+        if (filters.dateTo)     params.date_to     = filters.dateTo;
+        if (filters.page)       params.page        = filters.page;
+        if (filters.page_size)  params.page_size   = filters.page_size;
 
         const res = await api.get('/audit_logs/', { params });
         return res.data;

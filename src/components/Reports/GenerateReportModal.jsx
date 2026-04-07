@@ -5,6 +5,7 @@ import api from '../../services/api';
 
 const REPORT_TYPES = [
     { value: 'vendor_risk',        label: 'Vendor Risk Report',   requiresVendor: true },
+    { value: 'vendor_compliance_report', label: 'Vendor Compliance Report (SEBI/CBAM)', requiresVendor: true },
     { value: 'compliance_summary', label: 'Compliance Summary',   requiresVendor: false },
     { value: 'emissions_overview', label: 'Emissions Overview',   requiresVendor: false },
     { value: 'document_audit',     label: 'Document Audit Report', requiresVendor: false },

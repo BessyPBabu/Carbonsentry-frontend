@@ -53,6 +53,7 @@ export default function CommunicationPage() {
             if (wsRef.current) {
                 wsRef.current.close();
                 wsRef.current = null;
+                setConnected(false);
             }
         };
     }, [activeVendorId]);
@@ -133,6 +134,11 @@ export default function CommunicationPage() {
     };
 
     const selectVendor = (vid, name) => {
+        if (wsRef.current) {
+            wsRef.current.close();
+            wsRef.current = null;
+            setConnected(false);
+        }
         setActiveVendorId(vid);
         setActiveVendorName(name);
         setMessages([]);

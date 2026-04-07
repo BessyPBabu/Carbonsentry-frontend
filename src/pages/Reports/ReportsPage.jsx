@@ -21,6 +21,7 @@ const STATUS_COLORS = {
 
 const REPORT_TYPE_LABELS = {
     vendor_risk:        'Vendor Risk Report',
+    vendor_compliance_report: 'Vendor Compliance Report (SEBI/CBAM)',
     compliance_summary: 'Compliance Summary',
     emissions_overview: 'Emissions Overview',
     document_audit:     'Document Audit Report',
@@ -122,6 +123,7 @@ export default function ReportsPage() {
                     <option value="compliance_summary">Compliance Summary</option>
                     <option value="emissions_overview">Emissions Overview</option>
                     <option value="document_audit">Document Audit Report</option>
+                    <option value="vendor_compliance_report">Vendor Compliance Report (SEBI/CBAM)</option>
                 </select>
 
                 <select

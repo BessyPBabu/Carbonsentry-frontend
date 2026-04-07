@@ -20,19 +20,16 @@ const STATUS_COLORS = {
 
 export default function ReportPreview() {
     const { reportId } = useParams();
-    const navigate = useNavigate();
-    const { role } = useAuth();
+    const navigate     = useNavigate();
+    const { role }     = useAuth();
 
-    const [report, setReport] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-
-    // approval panel state
+    const [report,          setReport]          = useState(null);
+    const [loading,         setLoading]         = useState(true);
+    const [error,           setError]           = useState('');
     const [showApprovalPanel, setShowApprovalPanel] = useState(false);
-    const [approvalNotes, setApprovalNotes] = useState('');
-    const [approving, setApproving] = useState(false);
-
-    const [downloading, setDownloading] = useState(false);
+    const [approvalNotes,   setApprovalNotes]   = useState('');
+    const [approving,       setApproving]       = useState(false);
+    const [downloading,     setDownloading]     = useState(false);
 
     useEffect(() => {
         const load = async () => {
@@ -78,14 +75,6 @@ export default function ReportPreview() {
         }
     };
 
-    const handleDownloadJson = () => {
-        try {
-            reportService.downloadJson(report);
-        } catch (err) {
-            toast.error('Failed to download JSON');
-        }
-    };
-
     if (loading) {
         return (
             <div className="flex items-center justify-center h-96 text-gray-400 text-sm">
@@ -98,10 +87,7 @@ export default function ReportPreview() {
         return (
             <div className="flex flex-col items-center justify-center h-96 gap-3">
                 <p className="text-red-500 text-sm">{error || 'Report not found'}</p>
-                <button
-                    onClick={() => navigate(-1)}
-                    className="text-sm text-emerald-600 underline"
-                >
+                <button onClick={() => navigate(-1)} className="text-sm text-emerald-600 underline">
                     Go back
                 </button>
             </div>
@@ -112,8 +98,6 @@ export default function ReportPreview() {
 
     return (
         <div className="max-w-6xl mx-auto px-6 py-8">
-
-            {/* Back */}
             <button
                 onClick={() => navigate(-1)}
                 className="text-sm text-gray-500 hover:text-gray-700 mb-4 flex items-center gap-1"
@@ -136,7 +120,7 @@ export default function ReportPreview() {
                 </span>
             </div>
 
-            {/* Action buttons */}
+            {/* Actions */}
             <div className="flex gap-3 mb-6 flex-wrap">
                 {report.status !== 'draft' && (
                     <button
@@ -147,12 +131,6 @@ export default function ReportPreview() {
                         {downloading ? 'Downloading...' : 'Download PDF'}
                     </button>
                 )}
-                {/* <button
-                    onClick={handleDownloadJson}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                    Download JSON
-                </button> */}
                 {canApprove && !showApprovalPanel && (
                     <button
                         onClick={() => setShowApprovalPanel(true)}
@@ -209,23 +187,195 @@ export default function ReportPreview() {
 
             {/* Report body */}
             <div className="bg-white border rounded-xl p-6">
-                {report.report_type === 'vendor_risk'         && <VendorRiskContent data={report.data} />}
-                {report.report_type === 'compliance_summary'  && <ComplianceSummaryContent data={report.data} />}
-                {report.report_type === 'emissions_overview'  && <EmissionsOverviewContent data={report.data} />}
-                {report.report_type === 'document_audit'      && <DocumentAuditContent data={report.data} />}
+                {report.report_type === 'vendor_risk'              && <VendorRiskContent data={report.data} />}
+                {report.report_type === 'compliance_summary'       && <ComplianceSummaryContent data={report.data} />}
+                {report.report_type === 'emissions_overview'       && <EmissionsOverviewContent data={report.data} />}
+                {report.report_type === 'document_audit'           && <DocumentAuditContent data={report.data} />}
+                {report.report_type === 'vendor_compliance_report' && <VendorComplianceContent data={report.data} />}
             </div>
         </div>
     );
 }
 
 
-/* ============================================================
-   Report content components — one per report_type
-   ============================================================ */
+/* ── VendorComplianceContent ─────────────────────────────────────────────── */
+
+function VendorComplianceContent({ data }) {
+    const vendor  = data.vendor || {};
+    const ev      = data.emission_verification || {};
+    const em      = data.scope_emissions || {};
+    const regs    = data.regulatory_applicability || [];
+    const exposure = data.regulatory_risk_exposure || [];
+    const gaps    = data.compliance_gap_analysis || [];
+    const recs    = data.recommendations || [];
+    const docs    = ev.document_details || [];
+
+    const RA_MET = ev.reasonable_assurance_met;
+
+    return (
+        <div className="space-y-8">
+            {/* Vendor header */}
+            <Section title="Vendor Overview">
+                <StatGrid items={[
+                    { label: 'Vendor',            value: vendor.name || '—' },
+                    { label: 'Industry',          value: vendor.industry || '—' },
+                    { label: 'Country',           value: vendor.country || '—' },
+                    { label: 'Compliance Status', value: (vendor.compliance_status || '—').replace('_', ' ') },
+                    { label: 'Risk Level',        value: vendor.risk_level || '—' },
+                ]} />
+            </Section>
+
+            {/* Regulatory applicability */}
+            {regs.length > 0 && (
+                <Section title="Regulatory Applicability">
+                    <div className="space-y-3">
+                        {regs.map((r, i) => (
+                            <div key={i} className="border rounded-lg p-4 bg-gray-50">
+                                <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+                                    <span className="font-semibold text-gray-900 text-sm">{r.regulation}</span>
+                                    <span className="text-xs text-gray-500">{r.deadline}</span>
+                                </div>
+                                <p className="text-sm text-gray-700">{r.requirement}</p>
+                                {r.applies_because && (
+                                    <p className="text-xs text-gray-400 mt-1">Applies because: {r.applies_because}</p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </Section>
+            )}
+
+            {/* Emission verification */}
+            <Section title="Document Verification Status">
+                <div className="mb-4">
+                    <StatGrid items={[
+                        { label: 'Total Documents',    value: ev.total_documents || 0 },
+                        { label: 'Valid',              value: ev.valid_documents || 0 },
+                        { label: 'Flagged',            value: ev.flagged_documents || 0 },
+                        { label: 'Invalid',            value: ev.invalid_documents || 0 },
+                        { label: 'Pending',            value: ev.pending_documents || 0 },
+                        { label: 'Expired',            value: ev.expired_documents || 0 },
+                    ]} />
+                </div>
+                <div className="flex items-center gap-4 mt-3">
+                    <div className="bg-gray-50 rounded-lg p-3 flex-1">
+                        <p className="text-xs text-gray-500 uppercase font-medium mb-1">Avg AI Confidence</p>
+                        <p className={`text-2xl font-bold ${
+                            (ev.average_ai_confidence || 0) >= 75 ? 'text-green-600' :
+                            (ev.average_ai_confidence || 0) >= 50 ? 'text-yellow-600' : 'text-red-600'
+                        }`}>
+                            {ev.average_ai_confidence || 0}%
+                        </p>
+                    </div>
+                    <div className={`rounded-lg p-3 flex-1 ${RA_MET ? 'bg-green-50' : 'bg-red-50'}`}>
+                        <p className="text-xs text-gray-500 uppercase font-medium mb-1">Reasonable Assurance (≥75%)</p>
+                        <p className={`text-lg font-bold ${RA_MET ? 'text-green-700' : 'text-red-700'}`}>
+                            {RA_MET ? '✓ Met' : '✗ Not Met'}
+                        </p>
+                    </div>
+                </div>
+
+                {docs.length > 0 && (
+                    <div className="mt-4">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Document Detail</p>
+                        <DataTable
+                            headers={['Document Type', 'Status', 'Confidence', 'CO₂ (tonnes)', 'Assurance']}
+                            rows={docs.map(d => [
+                                d.document_type,
+                                <StatusPill key={d.document_type} value={d.status} />,
+                                d.confidence != null ? `${d.confidence.toFixed(1)}%` : '—',
+                                d.co2_extracted != null ? d.co2_extracted.toLocaleString() : '—',
+                                d.assurance_met
+                                    ? <span className="text-green-600 text-xs font-medium">Met</span>
+                                    : <span className="text-red-500 text-xs font-medium">Not met</span>,
+                            ])}
+                        />
+                    </div>
+                )}
+            </Section>
+
+            {/* Scope emissions */}
+            <Section title="Emission Data">
+                <StatGrid items={[
+                    { label: 'Total CO₂ Emissions',  value: `${(em.total_co2_tonnes || 0).toLocaleString()} tonnes CO₂e` },
+                    { label: 'Risk Score',            value: `${em.risk_score || 0} / 100` },
+                    { label: 'Risk Level',            value: em.risk_level || '—' },
+                    { label: 'Exceeds Threshold',     value: em.exceeds_threshold ? 'Yes ⚠' : 'No' },
+                ]} />
+            </Section>
+
+            {/* Regulatory risk exposure */}
+            {exposure.length > 0 && (
+                <Section title="Regulatory Risk & Financial Exposure">
+                    <div className="space-y-3">
+                        {exposure.map((e, i) => (
+                            <div
+                                key={i}
+                                className={`border rounded-lg p-4 ${
+                                    e.status === 'compliant' ? 'bg-green-50 border-green-200' :
+                                    e.status === 'non_compliant' ? 'bg-red-50 border-red-200' :
+                                    'bg-yellow-50 border-yellow-200'
+                                }`}
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="font-semibold text-gray-900 text-sm">{e.regulation}</span>
+                                    <StatusPill value={e.status} />
+                                </div>
+                                {e.gap && <p className="text-sm text-red-700 mb-1">{e.gap}</p>}
+                                {e.risk && <p className="text-xs text-gray-600">Risk: {e.risk}</p>}
+                                {e.estimated_carbon_cost_eur != null && (
+                                    <div className="mt-2 text-sm font-medium text-orange-700">
+                                        Estimated CBAM cost: EUR {e.estimated_carbon_cost_eur.toLocaleString()} / INR {e.estimated_carbon_cost_inr?.toLocaleString()}
+                                    </div>
+                                )}
+                                {e.max_penalty_display && (
+                                    <div className="mt-1 text-sm font-medium text-red-700">
+                                        Max NGT penalty: {e.max_penalty_display}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </Section>
+            )}
+
+            {/* Compliance gaps */}
+            {gaps.length > 0 && (
+                <Section title="Compliance Gap Analysis">
+                    <ul className="space-y-2">
+                        {gaps.map((g, i) => (
+                            <li key={i} className="flex items-start gap-2 text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2">
+                                <span className="shrink-0 mt-0.5">⚠</span>
+                                {g}
+                            </li>
+                        ))}
+                    </ul>
+                </Section>
+            )}
+
+            {/* Recommendations */}
+            {recs.length > 0 && (
+                <Section title="Recommendations">
+                    <ul className="space-y-2">
+                        {recs.map((r, i) => (
+                            <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                                <span className="text-emerald-500 shrink-0 mt-0.5">•</span>
+                                {r}
+                            </li>
+                        ))}
+                    </ul>
+                </Section>
+            )}
+        </div>
+    );
+}
+
+
+/* ── Existing content components (unchanged) ─────────────────────────────── */
 
 function VendorRiskContent({ data }) {
-    const rs = data.risk_summary || {};
-    const em = data.emissions || {};
+    const rs   = data.risk_summary || {};
+    const em   = data.emissions || {};
     const docs = data.documents || {};
     const recs = data.recommendations || [];
 
@@ -234,8 +384,8 @@ function VendorRiskContent({ data }) {
             <Section title="Risk Summary">
                 <StatGrid items={[
                     { label: 'Overall Risk Score', value: `${rs.overall_score || 0} / 100` },
-                    { label: 'Risk Level', value: (rs.risk_level || '—').toUpperCase() },
-                    { label: 'Compliance Status', value: data.vendor?.compliance_status || '—' },
+                    { label: 'Risk Level',         value: (rs.risk_level || '—').toUpperCase() },
+                    { label: 'Compliance Status',  value: data.vendor?.compliance_status || '—' },
                 ]} />
                 {rs.factors?.length > 0 && (
                     <div className="mt-4">
@@ -249,7 +399,7 @@ function VendorRiskContent({ data }) {
 
             <Section title="Emissions Data">
                 <StatGrid items={[
-                    { label: 'Total CO₂', value: `${(em.total_co2 || 0).toLocaleString()} ${em.unit || 'tonnes'}` },
+                    { label: 'Total CO₂',        value: `${(em.total_co2 || 0).toLocaleString()} ${em.unit || 'tonnes'}` },
                     { label: 'Exceeds Threshold', value: em.exceeds_threshold ? 'Yes' : 'No' },
                 ]} />
             </Section>
@@ -269,8 +419,7 @@ function VendorRiskContent({ data }) {
                     <ul className="space-y-1">
                         {recs.map((r, i) => (
                             <li key={i} className="text-sm text-gray-700 flex gap-2">
-                                <span className="text-emerald-500 shrink-0">•</span>
-                                {r}
+                                <span className="text-emerald-500 shrink-0">•</span>{r}
                             </li>
                         ))}
                     </ul>
@@ -281,30 +430,29 @@ function VendorRiskContent({ data }) {
 }
 
 function ComplianceSummaryContent({ data }) {
-    const s = data.summary || {};
+    const s       = data.summary || {};
     const vendors = data.vendors || [];
 
     return (
         <div className="space-y-8">
             <Section title="Organisation Summary">
                 <StatGrid items={[
-                    { label: 'Total Vendors',       value: s.total_vendors || 0 },
-                    { label: 'Compliant',           value: s.compliant || 0 },
-                    { label: 'Non-Compliant',       value: s.non_compliant || 0 },
-                    { label: 'Pending',             value: s.pending || 0 },
-                    { label: 'Expired',             value: s.expired || 0 },
+                    { label: 'Total Vendors',        value: s.total_vendors || 0 },
+                    { label: 'Compliant',            value: s.compliant || 0 },
+                    { label: 'Non-Compliant',        value: s.non_compliant || 0 },
+                    { label: 'Pending',              value: s.pending || 0 },
+                    { label: 'Expired',              value: s.expired || 0 },
                     { label: 'High / Critical Risk', value: s.high_risk || 0 },
                 ]} />
             </Section>
-
             {vendors.length > 0 && (
                 <Section title="Vendor Status">
                     <DataTable
                         headers={['Vendor', 'Industry', 'Compliance', 'Risk Level']}
-                        rows={vendors.slice(0, 30).map((v) => [
+                        rows={vendors.slice(0, 30).map(v => [
                             v.name,
                             v.industry || '—',
-                            <StatusPill key={v.vendor_id} value={v.compliance_status} />,
+                            <StatusPill key={v.vendor_id}        value={v.compliance_status} />,
                             <StatusPill key={v.vendor_id + '_r'} value={v.risk_level} />,
                         ])}
                     />
@@ -315,19 +463,18 @@ function ComplianceSummaryContent({ data }) {
 }
 
 function EmissionsOverviewContent({ data }) {
-    const s = data.summary || {};
+    const s          = data.summary || {};
     const topEmitters = data.vendor_emissions || [];
-    const byIndustry = data.by_industry || [];
+    const byIndustry  = data.by_industry || [];
 
     return (
         <div className="space-y-8">
             <Section title="Emissions Summary">
                 <StatGrid items={[
                     { label: 'Vendors with Data', value: s.total_vendors_with_data || 0 },
-                    { label: 'Total Emissions', value: `${(s.total_emissions || 0).toLocaleString()} ${s.unit || 'tonnes CO2e'}` },
+                    { label: 'Total Emissions',   value: `${(s.total_emissions || 0).toLocaleString()} ${s.unit || 'tonnes CO2e'}` },
                 ]} />
             </Section>
-
             {topEmitters.length > 0 && (
                 <Section title="Top Emitters">
                     <DataTable
@@ -342,16 +489,11 @@ function EmissionsOverviewContent({ data }) {
                     />
                 </Section>
             )}
-
             {byIndustry.length > 0 && (
                 <Section title="By Industry">
                     <DataTable
                         headers={['Industry', 'Total CO₂ (tonnes)', 'Vendors']}
-                        rows={byIndustry.map((row) => [
-                            row.industry,
-                            row.total_co2.toLocaleString(),
-                            row.vendor_count,
-                        ])}
+                        rows={byIndustry.map(row => [row.industry, row.total_co2.toLocaleString(), row.vendor_count])}
                     />
                 </Section>
             )}
@@ -360,8 +502,8 @@ function EmissionsOverviewContent({ data }) {
 }
 
 function DocumentAuditContent({ data }) {
-    const vs = data.validation_summary || {};
-    const qm = data.quality_metrics || {};
+    const vs             = data.validation_summary || {};
+    const qm             = data.quality_metrics || {};
     const vendorSummaries = data.vendor_summaries || [];
 
     return (
@@ -376,7 +518,6 @@ function DocumentAuditContent({ data }) {
                     { label: 'Failed',             value: vs.failed || 0 },
                 ]} />
             </Section>
-
             <Section title="Quality Metrics">
                 <StatGrid items={[
                     { label: 'Avg Overall Confidence', value: `${qm.avg_overall_confidence || 0}%` },
@@ -385,16 +526,12 @@ function DocumentAuditContent({ data }) {
                     { label: 'Avg Authenticity Score', value: `${qm.avg_authenticity_score || 0}%` },
                 ]} />
             </Section>
-
             {vendorSummaries.length > 0 && (
                 <Section title="Per-Vendor Summary">
                     <DataTable
                         headers={['Vendor', 'Validations', 'Flagged', 'Avg Confidence']}
-                        rows={vendorSummaries.slice(0, 25).map((v) => [
-                            v.vendor_name,
-                            v.total_validations,
-                            v.flagged,
-                            `${v.avg_confidence}%`,
+                        rows={vendorSummaries.slice(0, 25).map(v => [
+                            v.vendor_name, v.total_validations, v.flagged, `${v.avg_confidence}%`,
                         ])}
                     />
                 </Section>
@@ -404,9 +541,7 @@ function DocumentAuditContent({ data }) {
 }
 
 
-/* ============================================================
-   Shared layout helpers
-   ============================================================ */
+/* ── Shared layout helpers ───────────────────────────────────────────────── */
 
 function Section({ title, children }) {
     return (
@@ -434,13 +569,12 @@ function StatGrid({ items }) {
 
 function DataTable({ headers, rows }) {
     if (!rows.length) return null;
-
     return (
         <div className="overflow-x-auto">
             <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                     <tr>
-                        {headers.map((h) => (
+                        {headers.map(h => (
                             <th key={h} className="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">
                                 {h}
                             </th>
@@ -451,9 +585,7 @@ function DataTable({ headers, rows }) {
                     {rows.map((row, i) => (
                         <tr key={i} className="hover:bg-gray-50">
                             {row.map((cell, j) => (
-                                <td key={j} className="px-4 py-2.5 text-gray-700">
-                                    {cell}
-                                </td>
+                                <td key={j} className="px-4 py-2.5 text-gray-700">{cell}</td>
                             ))}
                         </tr>
                     ))}
@@ -463,22 +595,27 @@ function DataTable({ headers, rows }) {
     );
 }
 
-// small inline badge for compliance_status / risk_level values
 function StatusPill({ value }) {
     const colors = {
         compliant:     'bg-green-100 text-green-700',
         non_compliant: 'bg-red-100 text-red-700',
         pending:       'bg-yellow-100 text-yellow-700',
         expired:       'bg-gray-100 text-gray-600',
+        at_risk:       'bg-orange-100 text-orange-700',
+        exposure_calculated: 'bg-blue-100 text-blue-700',
         low:           'bg-green-100 text-green-700',
         medium:        'bg-yellow-100 text-yellow-700',
         high:          'bg-orange-100 text-orange-700',
         critical:      'bg-red-100 text-red-700',
         unknown:       'bg-gray-100 text-gray-500',
+        valid:         'bg-green-100 text-green-700',
+        invalid:       'bg-red-100 text-red-700',
+        flagged:       'bg-orange-100 text-orange-700',
+        uploaded:      'bg-blue-100 text-blue-700',
     };
     return (
         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[value] || 'bg-gray-100 text-gray-600'}`}>
-            {value}
+            {(value || '—').replace(/_/g, ' ')}
         </span>
     );
 }

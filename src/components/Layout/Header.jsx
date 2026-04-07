@@ -29,7 +29,7 @@ export default function Header({
       {/* ── Right: theme toggle + org info + logout ──────────────────────── */}
       <div className="flex items-center gap-3">
         {/* Dark / Light toggle */}
-        {/* <button
+        {/* {<button
           onClick={toggleTheme}
           title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           className="p-2 rounded-lg text-gray-500 dark:text-gray-400
@@ -38,7 +38,7 @@ export default function Header({
           aria-label="Toggle theme"
         >
           {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
-        </button> */}
+        </button> } */}
 
         {/* Org + role label */}
         <div className="text-right hidden sm:block">

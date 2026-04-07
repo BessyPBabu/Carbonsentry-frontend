@@ -188,11 +188,11 @@ export default function VendorDetails() {
 
             {/* Per-document CO2 breakdown */}
             {documents
-              .filter((d) => d.co2_value || d.validation?.metadata?.co2_value)
+              .filter(d => d.validation?.metadata?.co2_value)
               .slice(0, 2)
               .map((doc) => {
-                const co2 = doc.co2_value || doc.validation?.metadata?.co2_value;
-                const unit = doc.co2_unit || doc.validation?.metadata?.co2_unit || "tonnes";
+                const co2  = doc.validation?.metadata?.co2_value;
+                const unit = doc.validation?.metadata?.co2_unit || "tonnes";
                 return (
                   <div key={doc.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 truncate">
@@ -267,12 +267,9 @@ export default function VendorDetails() {
               </thead>
               <tbody>
                 {documents.map((doc) => {
-                  // CO2 may live directly on doc or nested under validation.metadata
-                  const co2Val  = doc.co2_value  ?? doc.validation?.metadata?.co2_value  ?? null;
-                  const co2Unit = doc.co2_unit   ?? doc.validation?.metadata?.co2_unit   ?? "tonnes";
-                  const co2Conf = doc.co2_extraction_confidence
-                    ?? doc.validation?.metadata?.co2_extraction_confidence
-                    ?? null;
+                  const co2Val  = doc.validation?.metadata?.co2_value               ?? null;
+                  const co2Unit = doc.validation?.metadata?.co2_unit                ?? "tonnes";
+                  const co2Conf = doc.validation?.metadata?.co2_extraction_confidence ?? null;
 
                   return (
                     <tr key={doc.id}
@@ -318,7 +315,7 @@ export default function VendorDetails() {
                         {doc.uploaded_at ? formatDate(doc.uploaded_at) : "Not uploaded"}
                       </td>
                       <td className="px-4 py-3 text-center">
-                        {doc.file ? (
+                        {doc.file_url ? (
                           <button
                             onClick={() => setPreviewDocument(doc)}
                             className="text-[#1a8f70] hover:underline font-medium"

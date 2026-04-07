@@ -19,6 +19,7 @@ import UserManagement  from "./pages/Admin/UserManagement";
 import AddUser         from "./pages/Admin/AddUser";
 import EditUser        from "./pages/Admin/EditUser";
 import Settings        from "./pages/Admin/Settings";
+import CarbonKnowledge   from "./pages/Admin/CarbonKnowledge";
 
 import OfficerDashboard   from "./pages/Officer/Dashboard";
 import VendorsList        from "./pages/Officer/Vendors/VendorsList";
@@ -87,6 +88,7 @@ function App() {
               <Route path="user-management/add"             element={<AddUser />} />
               <Route path="user-management/edit/:id"        element={<EditUser />} />
               <Route path="settings"                        element={<Settings />} />
+              <Route path="carbon-knowledge"                element={<CarbonKnowledge />} />
             </Route>
 
             {/* ── Officer ─────────────────────────────────────────────── */}
@@ -117,6 +119,7 @@ function App() {
               <Route path="communication"                   element={<CommunicationPage />} />
               <Route path="communication/:vendorId"         element={<CommunicationPage />} />
               <Route path="audit-logs"                      element={<AuditLogsPage />} />
+              <Route path="carbon-knowledge"                element={<CarbonKnowledge />} />
             </Route>
 
             {/* ── Viewer ──────────────────────────────────────────────── */}
@@ -134,6 +137,7 @@ function App() {
               <Route path="risk-analysis/:vendorId"         element={<VendorRiskAnalysis />} />
               <Route path="reports"                         element={<ReportsPage />} />
               <Route path="reports/:reportId"               element={<ReportPreview />} />
+              <Route path="carbon-knowledge"                element={<CarbonKnowledge />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/login" replace />} />

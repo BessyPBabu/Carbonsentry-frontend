@@ -24,11 +24,6 @@ const levelFromScore = (score) => {
   return 'critical';
 };
 
-// Risk bands as defined by backend _risk_level():
-//   low:      score 0-25   → display 0.0–1.2 / 5
-//   medium:   score 26-50  → display 1.3–2.5 / 5
-//   high:     score 51-75  → display 2.6–3.7 / 5
-//   critical: score 76-100 → display 3.8–5.0 / 5
 const RISK_BAND_LABEL = {
   low:      'Low risk (0.0–1.2 / 5)',
   medium:   'Medium risk (1.3–2.5 / 5)',
@@ -63,15 +58,20 @@ const VendorRiskList = () => {
       let data = await riskService.getAllRiskProfiles();
 
       if (filter === 'high') {
-        // high + critical
-        data = data.filter((p) => p.risk_level === 'high' || p.risk_level === 'critical');
-      } else if (filter !== 'all') {
-        data = data.filter((p) => p.risk_level === filter);
-      }
+      data = data.filter(p => {
+        const lvl = levelFromScore(p.risk_score);
+        return lvl === 'high' || lvl === 'critical';
+      });
+    } else if (filter !== 'all') {
+      data = data.filter(p => levelFromScore(p.risk_score) === filter);
+    }
 
-      // Sort: critical first, then high, medium, low, unknown
-      const ORDER = { critical: 0, high: 1, medium: 2, low: 3, unknown: 4 };
-      data.sort((a, b) => (ORDER[a.risk_level] ?? 5) - (ORDER[b.risk_level] ?? 5));
+    const ORDER = { critical: 0, high: 1, medium: 2, low: 3, unknown: 4 };
+    data.sort((a, b) => {
+      const la = levelFromScore(a.risk_score);
+      const lb = levelFromScore(b.risk_score);
+      return (ORDER[la] ?? 5) - (ORDER[lb] ?? 5);
+    })
 
       setRiskProfiles(data);
     } catch (error) {

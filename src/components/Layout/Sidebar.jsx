@@ -8,6 +8,7 @@ import {
   Activity,
   Settings,
   MessageSquare,
+  BookOpen,
   X,
 } from "lucide-react";
 
@@ -15,6 +16,7 @@ function getMenuItems(role) {
   const base = [
     { path: "dashboard", label: "Dashboard",  icon: LayoutDashboard },
     { path: "vendors",   label: "Vendors",    icon: Building2 },
+  
   ];
 
   if (role === "admin") {
@@ -25,6 +27,7 @@ function getMenuItems(role) {
       { path: "audit-logs",      label: "Audit Logs",       icon: Activity },
       { path: "user-management", label: "User Management",  icon: Users },
       { path: "settings",        label: "Settings",         icon: Settings },
+      { path: "carbon-knowledge", label: "Carbon Knowledge",  icon: BookOpen },
     ];
   }
 
@@ -37,6 +40,7 @@ function getMenuItems(role) {
       { path: "communication",   label: "Communication",    icon: MessageSquare },
       { path: "audit-logs",      label: "Audit Logs",       icon: Activity },
       { path: "reports",         label: "Reports",          icon: FileText },
+      { path: "carbon-knowledge", label: "Carbon Knowledge",  icon: BookOpen },
     ];
   }
 
@@ -45,6 +49,7 @@ function getMenuItems(role) {
     ...base,
     { path: "risk-analysis", label: "Risk Analysis", icon: AlertTriangle },
     { path: "reports",       label: "Reports",        icon: FileText },
+    { path: "carbon-knowledge", label: "Carbon Knowledge",  icon: BookOpen },
   ];
 }
 
