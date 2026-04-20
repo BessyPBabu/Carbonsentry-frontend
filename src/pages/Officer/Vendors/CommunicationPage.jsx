@@ -1,23 +1,20 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import communicationService from '../../../services/communicationService';
 import { useAuth } from '../../../context/AuthContext';
-import api from '../../../services/api';
 
 const formatTime = (iso) => {
     if (!iso) return '';
-    return new Date(iso).toLocaleTimeString('en-US', {
-        hour: '2-digit', minute: '2-digit',
-    });
+    return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 };
 
 const formatDay = (iso) => {
     if (!iso) return '';
-    return new Date(iso).toLocaleDateString('en-US', {
-        month: 'short', day: 'numeric', year: 'numeric',
-    });
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
+
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 export default function CommunicationPage() {
     const { vendorId } = useParams();
@@ -39,28 +36,166 @@ export default function CommunicationPage() {
 
     const wsRef = useRef(null);
     const messagesEndRef = useRef(null);
+    const reconnectTimeoutRef = useRef(null);
+    const reconnectAttemptsRef = useRef(0);
 
+    // Tracks the active vendor synchronously — updated before setState so WS callbacks
+    // that fire after a vendor switch don't schedule a reconnect for the old vendor.
+    const activeVendorIdRef = useRef(activeVendorId);
+
+    // Holds the latest openSocket function reference so reconnect closures never
+    // call a stale version of the function.
+    const openSocketRef = useRef(null);
+
+    // mount / unmount — load list once and clean up everything on exit
     useEffect(() => {
         loadChatList();
+        return () => {
+            _clearReconnect();
+            _closeSocket();
+        };
     }, []);
 
+    // open a fresh socket whenever the active vendor changes
     useEffect(() => {
         if (!activeVendorId) return;
         loadMessages(activeVendorId);
         openSocket(activeVendorId);
-
         return () => {
-            if (wsRef.current) {
-                wsRef.current.close();
-                wsRef.current = null;
-                setConnected(false);
-            }
+            _closeSocket();
         };
     }, [activeVendorId]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+
+    const _clearReconnect = () => {
+        if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = null;
+        }
+    };
+
+    const _closeSocket = () => {
+        if (wsRef.current) {
+            wsRef.current.close();
+            wsRef.current = null;
+            setConnected(false);
+        }
+    };
+
+    // ── socket ───────────────────────────────────────────────────────────────
+
+    const openSocket = (vid) => {
+        // close any existing socket before opening a new one
+        if (wsRef.current) {
+            wsRef.current.close();
+            wsRef.current = null;
+        }
+
+        // tracks whether this specific connection ever reached OPEN state,
+        // so we only attempt reconnection for drops after a successful connect
+        let wasConnected = false;
+
+        const ws = communicationService.openOfficerSocket(vid, {
+            onOpen: () => {
+                wasConnected = true;
+                reconnectAttemptsRef.current = 0;
+                setConnected(true);
+            },
+
+            onClose: () => {
+                setConnected(false);
+
+                // skip reconnect if:
+                //  • socket never successfully connected (auth failure etc.)
+                //  • user has already switched to a different vendor
+                //  • we've hit the retry ceiling
+                const stillSameVendor = activeVendorIdRef.current === vid;
+                if (
+                    !wasConnected ||
+                    !stillSameVendor ||
+                    reconnectAttemptsRef.current >= MAX_RECONNECT_ATTEMPTS
+                ) {
+                    return;
+                }
+
+                const attempt = reconnectAttemptsRef.current;
+                // exponential back-off capped at 30 s
+                const delay = Math.min(1000 * Math.pow(2, attempt), 30_000);
+                reconnectAttemptsRef.current += 1;
+
+                console.info(
+                    `CommunicationPage: reconnect vendor=${vid} in ${delay}ms (attempt ${attempt + 1}/${MAX_RECONNECT_ATTEMPTS})`
+                );
+
+                reconnectTimeoutRef.current = setTimeout(() => {
+                    // one last check — vendor may have changed while timer was pending
+                    if (activeVendorIdRef.current === vid) {
+                        openSocketRef.current?.(vid);
+                    }
+                }, delay);
+            },
+
+            onError: () => {
+                setConnected(false);
+                if (wasConnected) {
+                    toast.error('Connection lost. Trying to reconnect...');
+                }
+            },
+
+            onMessage: (data) => {
+                if (data.type !== 'chat_message') return;
+                setMessages((prev) => {
+                    // deduplicate: the same message can arrive via REST load and WS push
+                    if (prev.some((m) => m.id === data.id)) return prev;
+                    return [
+                        ...prev,
+                        {
+                            id: data.id,
+                            content: data.content,
+                            message_type: data.message_type,
+                            sender_type: data.sender_type,
+                            sender_name: data.sender_name,
+                            created_at: data.created_at,
+                        },
+                    ];
+                });
+            },
+        });
+
+        wsRef.current = ws;
+    };
+
+    // keep the ref current on every render so the reconnect timeout always
+    // invokes the latest closure (important after React state updates)
+    openSocketRef.current = openSocket;
+
+    // ── vendor selection ──────────────────────────────────────────────────────
+
+    const selectVendor = (vid, name) => {
+        // 1. kill any pending reconnect timer for the previous vendor
+        _clearReconnect();
+        reconnectAttemptsRef.current = 0;
+
+        // 2. update the ref synchronously BEFORE closing the socket
+        //    so the onClose callback that fires next sees the new vendor ID
+        //    and skips scheduling a reconnect for the old one
+        activeVendorIdRef.current = vid;
+
+        // 3. close old socket (its onClose will now see activeVendorIdRef !== old vid)
+        _closeSocket();
+
+        setActiveVendorId(vid);
+        setActiveVendorName(name);
+        setMessages([]);
+        navigate(`/officer/communication/${vid}`, { replace: true });
+    };
+
+    // ── data loaders ──────────────────────────────────────────────────────────
 
     const loadChatList = async () => {
         try {
@@ -91,59 +226,7 @@ export default function CommunicationPage() {
         }
     };
 
-    const openSocket = (vid) => {
-        if (wsRef.current) {
-            wsRef.current.close();
-        }
-
-        // Only show "connection lost" if the socket was previously open.
-        // Prevents the error toast firing on the very first connection attempt.
-        let wasConnected = false;
-
-        const ws = communicationService.openOfficerSocket(vid, {
-            onOpen: () => {
-                wasConnected = true;
-                setConnected(true);
-            },
-            onClose: () => setConnected(false),
-            onError: () => {
-                setConnected(false);
-                if (wasConnected) {
-                    toast.error('Connection lost. Trying to reconnect...');
-                }
-            },
-            onMessage: (data) => {
-                if (data.type === 'chat_message') {
-                    setMessages(prev => {
-                        const exists = prev.some(m => m.id === data.id);
-                        if (exists) return prev;
-                        return [...prev, {
-                            id: data.id,
-                            content: data.content,
-                            message_type: data.message_type,
-                            sender_type: data.sender_type,
-                            sender_name: data.sender_name,
-                            created_at: data.created_at,
-                        }];
-                    });
-                }
-            },
-        });
-
-        wsRef.current = ws;
-    };
-
-    const selectVendor = (vid, name) => {
-        if (wsRef.current) {
-            wsRef.current.close();
-            wsRef.current = null;
-            setConnected(false);
-        }
-        setActiveVendorId(vid);
-        setActiveVendorName(name);
-        setMessages([]);
-        navigate(`/officer/communication/${vid}`, { replace: true });
-    };
+    // ── send ──────────────────────────────────────────────────────────────────
 
     const handleSend = () => {
         const content = input.trim();
@@ -183,6 +266,8 @@ export default function CommunicationPage() {
 
     const myName = user?.full_name || user?.email || 'You';
 
+    // ── render ────────────────────────────────────────────────────────────────
+
     return (
         <div className="flex h-[calc(100vh-64px)] overflow-hidden">
 
@@ -206,7 +291,9 @@ export default function CommunicationPage() {
                                 key={chat.vendor_id}
                                 onClick={() => selectVendor(chat.vendor_id, chat.vendor_name)}
                                 className={`w-full text-left px-4 py-3 border-b hover:bg-gray-50 transition-colors ${
-                                    activeVendorId === chat.vendor_id ? 'bg-emerald-50 border-l-2 border-l-emerald-500' : ''
+                                    activeVendorId === chat.vendor_id
+                                        ? 'bg-emerald-50 border-l-2 border-l-emerald-500'
+                                        : ''
                                 }`}
                             >
                                 <div className="flex justify-between items-center">
@@ -223,7 +310,11 @@ export default function CommunicationPage() {
                                     {chat.last_message || 'No messages yet'}
                                 </p>
                                 <div className="flex items-center gap-1 mt-1">
-                                    <span className={`w-1.5 h-1.5 rounded-full ${chat.has_active_token ? 'bg-green-400' : 'bg-gray-300'}`} />
+                                    <span
+                                        className={`w-1.5 h-1.5 rounded-full ${
+                                            chat.has_active_token ? 'bg-green-400' : 'bg-gray-300'
+                                        }`}
+                                    />
                                     <span className="text-xs text-gray-400">
                                         {chat.has_active_token ? 'Link active' : 'No active link'}
                                     </span>
@@ -247,7 +338,11 @@ export default function CommunicationPage() {
                             <div>
                                 <h3 className="font-semibold text-gray-900">{activeVendorName}</h3>
                                 <div className="flex items-center gap-1">
-                                    <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-400' : 'bg-gray-300'}`} />
+                                    <span
+                                        className={`w-2 h-2 rounded-full ${
+                                            connected ? 'bg-green-400' : 'bg-gray-300'
+                                        }`}
+                                    />
                                     <span className="text-xs text-gray-400">
                                         {connected ? 'Connected' : 'Connecting...'}
                                     </span>
@@ -274,7 +369,9 @@ export default function CommunicationPage() {
                             messages.map((msg, idx) => {
                                 const isOfficer = msg.sender_type === 'officer';
                                 const isInternal = msg.message_type === 'internal_note';
-                                const showDay = idx === 0 || formatDay(messages[idx - 1]?.created_at) !== formatDay(msg.created_at);
+                                const showDay =
+                                    idx === 0 ||
+                                    formatDay(messages[idx - 1]?.created_at) !== formatDay(msg.created_at);
 
                                 return (
                                     <React.Fragment key={msg.id}>
@@ -284,17 +381,23 @@ export default function CommunicationPage() {
                                             </div>
                                         )}
                                         <div className={`flex ${isOfficer ? 'justify-end' : 'justify-start'}`}>
-                                            <div className={`max-w-sm ${isOfficer ? 'items-end' : 'items-start'} flex flex-col`}>
+                                            <div
+                                                className={`max-w-sm flex flex-col ${
+                                                    isOfficer ? 'items-end' : 'items-start'
+                                                }`}
+                                            >
                                                 <span className="text-xs text-gray-400 mb-1 px-1">
                                                     {msg.sender_name || (isOfficer ? myName : activeVendorName)}
                                                 </span>
-                                                <div className={`px-4 py-2 rounded-2xl text-sm ${
-                                                    isInternal
-                                                        ? 'bg-yellow-50 border border-yellow-200 text-yellow-900 rounded-tr-sm'
-                                                        : isOfficer
+                                                <div
+                                                    className={`px-4 py-2 rounded-2xl text-sm ${
+                                                        isInternal
+                                                            ? 'bg-yellow-50 border border-yellow-200 text-yellow-900 rounded-tr-sm'
+                                                            : isOfficer
                                                             ? 'bg-emerald-600 text-white rounded-br-sm'
                                                             : 'bg-white border border-gray-200 text-gray-800 rounded-bl-sm'
-                                                }`}>
+                                                    }`}
+                                                >
                                                     {isInternal && (
                                                         <span className="text-xs font-medium text-yellow-600 block mb-1">
                                                             🔒 Internal Note
@@ -387,14 +490,22 @@ export default function CommunicationPage() {
                     <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
                         <div className="flex items-center justify-between px-6 py-4 border-b">
                             <h3 className="font-semibold text-gray-900">Send Chat Invitation</h3>
-                            <button onClick={() => setShowInviteModal(false)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
+                            <button
+                                onClick={() => setShowInviteModal(false)}
+                                className="text-gray-400 hover:text-gray-600 text-xl"
+                            >
+                                ×
+                            </button>
                         </div>
                         <div className="px-6 py-4">
                             <p className="text-sm text-gray-600 mb-4">
                                 A secure chat link will be emailed to the vendor. The link expires in 72 hours.
                             </p>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Email address <span className="text-gray-400 font-normal">(leave blank to use vendor's default email)</span>
+                                Email address{' '}
+                                <span className="text-gray-400 font-normal">
+                                    (leave blank to use vendor's default email)
+                                </span>
                             </label>
                             <input
                                 type="email"
