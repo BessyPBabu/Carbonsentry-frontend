@@ -429,6 +429,6 @@ describe("VerifyEmailSent page", () => {
         </Routes>
       </MemoryRouter>
     );
-    expect(screen.getByText(/your email/i)).toBeInTheDocument();
+    expect(screen.getByText("your email")).toBeInTheDocument();
   });
 });

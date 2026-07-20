@@ -50,7 +50,7 @@ function DocumentRow({ doc, token, onUploaded }) {
             setUploaded(true);
             setFile(null);
             if (inputRef.current) inputRef.current.value = '';
-            onUploaded(doc.id);   // notify parent which doc just finished
+            onUploaded(doc.id);   
         } catch (err) {
             const msg =
                 err?.response?.data?.detail ||
@@ -95,7 +95,7 @@ function DocumentRow({ doc, token, onUploaded }) {
                     <input
                         ref={inputRef}
                         type="file"
-                        accept=".pdf,.jpg,.jpeg,.png,.docx"
+                        accept=".pdf,.jpg,.jpeg,.png,.webp,.tiff,.tif"
                         className="hidden"
                         onChange={(e) => setFile(e.target.files[0] || null)}
                     />
@@ -104,7 +104,7 @@ function DocumentRow({ doc, token, onUploaded }) {
                             ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
                             : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'
                         }`}>
-                        {file ? file.name : 'Choose file — PDF, JPG, PNG, DOCX'}
+                        {file ? file.name : 'Choose file — PDF, JPG, PNG, WEBP, TIFF'}
                     </span>
                 </label>
 

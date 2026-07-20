@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import communicationService from '../../../services/communicationService';
 import { useAuth } from '../../../context/AuthContext';
+import { jwtDecode } from "jwt-decode";
+import api from "../../../services/api";
 
 const formatTime = (iso) => {
     if (!iso) return '';
@@ -107,14 +109,16 @@ export default function CommunicationPage() {
                 setConnected(true);
             },
 
-            onClose: () => {
+            onClose: (event) => {
                 setConnected(false);
 
-                // skip reconnect if:
-                //  • socket never successfully connected (auth failure etc.)
-                //  • user has already switched to a different vendor
-                //  • we've hit the retry ceiling
                 const stillSameVendor = activeVendorIdRef.current === vid;
+
+                if (event?.code === 4001 || event?.code === 4003) {
+                    toast.error('Your session has expired. Please refresh the page and log in again.');
+                    return;
+                }
+
                 if (
                     !wasConnected ||
                     !stillSameVendor ||
@@ -124,16 +128,30 @@ export default function CommunicationPage() {
                 }
 
                 const attempt = reconnectAttemptsRef.current;
-                // exponential back-off capped at 30 s
                 const delay = Math.min(1000 * Math.pow(2, attempt), 30_000);
                 reconnectAttemptsRef.current += 1;
 
-                console.info(
-                    `CommunicationPage: reconnect vendor=${vid} in ${delay}ms (attempt ${attempt + 1}/${MAX_RECONNECT_ATTEMPTS})`
-                );
+                reconnectTimeoutRef.current = setTimeout(async () => {
+                    if (activeVendorIdRef.current !== vid) return;
 
-                reconnectTimeoutRef.current = setTimeout(() => {
-                    // one last check — vendor may have changed while timer was pending
+                    let tokenExpired = true;
+                    try {
+                        const access = localStorage.getItem('access');
+                        if (access) {
+                            tokenExpired = jwtDecode(access).exp * 1000 < Date.now();
+                        }
+                    } catch {
+                        tokenExpired = true;
+                    }
+
+                    if (tokenExpired) {
+                        try {
+                            await api.get('/accounts/users/me/');
+                        } catch {
+                            return;
+                        }
+                    }
+
                     if (activeVendorIdRef.current === vid) {
                         openSocketRef.current?.(vid);
                     }

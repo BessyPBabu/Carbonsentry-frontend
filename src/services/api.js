@@ -7,7 +7,6 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// attach access token from localStorage on every request
 api.interceptors.request.use((config) => {
   const access = localStorage.getItem("access");
   if (access) {
@@ -15,6 +14,22 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+let refreshPromise = null;
+
+async function refreshAccessToken() {
+  const refresh = localStorage.getItem("refresh");
+  if (!refresh) {
+    throw new Error("No refresh token available");
+  }
+  const res = await axios.post(
+    `${API_BASE_URL}/api/accounts/auth/token/refresh/`,
+    { refresh }
+  );
+  const newAccess = res.data.access;
+  localStorage.setItem("access", newAccess);
+  return newAccess;
+}
 
 api.interceptors.response.use(
   (response) => response,
@@ -25,14 +40,10 @@ api.interceptors.response.use(
       return Promise.reject({ message: "Network error" });
     }
 
-    // only attempt refresh once per request
     if (error.response.status === 401 && !original._retry) {
       original._retry = true;
 
-      const refresh = localStorage.getItem("refresh");
-
-      if (!refresh) {
-        // no refresh token — full logout
+      if (!localStorage.getItem("refresh")) {
         localStorage.removeItem("access");
         localStorage.removeItem("refresh");
         window.location.href = "/login";
@@ -40,19 +51,19 @@ api.interceptors.response.use(
       }
 
       try {
-        const res = await axios.post(
-          `${API_BASE_URL}/api/accounts/auth/token/refresh/`,
-          { refresh }
-        );
-        const newAccess = res.data.access;
-        localStorage.setItem("access", newAccess);
+        if (!refreshPromise) {
+          refreshPromise = refreshAccessToken().finally(() => {
+            refreshPromise = null;
+          });
+        }
+        const newAccess = await refreshPromise;
         original.headers.Authorization = `Bearer ${newAccess}`;
         return api(original);
       } catch {
-        // refresh token itself is expired or invalid
         localStorage.removeItem("access");
         localStorage.removeItem("refresh");
         window.location.href = "/login";
+        return Promise.reject(error);
       }
     }
 

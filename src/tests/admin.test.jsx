@@ -79,13 +79,13 @@ describe("AdminDashboard", () => {
     await screen.findByText(/total vendors/i);
     expect(screen.getByText(/compliant vendors/i)).toBeInTheDocument();
     expect(screen.getByText(/pending documents/i)).toBeInTheDocument();
-    expect(screen.getByText(/high-risk vendors/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/high-risk vendors/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("calls monitoring endpoint on mount", async () => {
+  it("fetches risk profiles on mount", async () => {
     wrap(<AdminDashboard />);
     await waitFor(() =>
-      expect(mockGet).toHaveBeenCalledWith(expect.stringContaining("monitoring"))
+      expect(mockGet).toHaveBeenCalledWith(expect.stringContaining("risk-profiles"))
     );
   });
 

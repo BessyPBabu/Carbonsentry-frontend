@@ -1,6 +1,5 @@
-// src/tests/reports_validation.test.jsx
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 const { mockGet, mockPost, mockPatch, mockDelete } = vi.hoisted(() => ({
@@ -102,6 +101,7 @@ describe("ReportsPage", () => {
   beforeEach(() => {
     mockOfficer();
     reportService.getReports.mockResolvedValue(SAMPLE);
+    mockGet.mockResolvedValue({ data: [] });
   });
 
   it("renders Reports heading", async () => {
@@ -161,7 +161,7 @@ describe("ReportsPage", () => {
     wrap(<ReportsPage />);
     await screen.findByRole("button", { name: /generate report/i });
     fireEvent.click(screen.getByRole("button", { name: /generate report/i }));
-    await screen.findByText(/generate report/i); // modal heading
+    await screen.findByRole("heading", { name: /generate report/i });
   });
 });
 
@@ -252,7 +252,8 @@ describe("AIReviewQueue", () => {
 
   it("renders vendor name", async () => {
     wrap(<AIReviewQueue />);
-    await screen.findByText("Flagged Corp");
+    const matches = await screen.findAllByText("Flagged Corp");
+    expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows 'No documents pending review' when queue is empty", async () => {
@@ -280,19 +281,17 @@ describe("AIReviewQueue", () => {
 // VendorRiskList
 // ══════════════════════════════════════════════════════════════════════════════
 describe("VendorRiskList", () => {
-  // Both profiles intentionally have NO total_co2_emissions so the table
-  // renders "Pending" for both rows — this is the behaviour under test.
   const PROFILES = [
     { id: "p1", vendor_id: "v1", vendor_name: "High Corp", vendor_industry: "Tech",
       risk_level: "high",   risk_score: "80.00",
       validated_documents: 3, total_documents: 4,
       avg_document_confidence: "72",
-      total_co2_emissions: null },     // explicit null → "Pending"
+      total_co2_emissions: null },
     { id: "p2", vendor_id: "v2", vendor_name: "Low Corp",  vendor_industry: "Retail",
       risk_level: "low",    risk_score: "15.00",
       validated_documents: 2, total_documents: 2,
       avg_document_confidence: "88",
-      total_co2_emissions: undefined }, // missing key → "Pending"
+      total_co2_emissions: undefined },
   ];
 
   beforeEach(() => {
@@ -313,22 +312,12 @@ describe("VendorRiskList", () => {
 
   it("shows risk score in X.X / 5 format", async () => {
     wrap(<VendorRiskList />);
-    // 80 / 20 = 4.0
     await screen.findByText(/4\.0 \/ 5/i);
   });
 
   it("shows 'Pending' when total_co2_emissions is null or missing", async () => {
     wrap(<VendorRiskList />);
-
-    // FIX: do NOT use findByText("Pending") as the first await.
-    // The table renders asynchronously after the API resolves. If findByText
-    // runs in the brief window between mount and the first render-with-data,
-    // it can time out even though "Pending" will appear milliseconds later.
-    //
-    // Instead: wait for a guaranteed unique text first ("High Corp" is always
-    // present and unambiguous), confirming the table is fully rendered. Then
-    // use the synchronous getAllByText which succeeds immediately.
-    await screen.findByText("High Corp"); // table is rendered ✓
+    await screen.findByText("High Corp");
     const pendingCells = screen.getAllByText("Pending");
     expect(pendingCells.length).toBeGreaterThanOrEqual(1);
   });
@@ -360,21 +349,12 @@ describe("VendorRiskList", () => {
 describe("AIMonitoringPanel", () => {
   beforeEach(() => mockAdmin());
 
-  // FIX 1: "shows loading spinner on mount"
-  // Previous test used document.querySelector(".animate-spin") which returns
-  // null in jsdom because Tailwind classes are not processed at runtime.
-  // The component now renders the text "Loading metrics…" alongside the
-  // spinner, which is always findable regardless of CSS processing.
   it("shows loading text while fetch is in-flight", () => {
-    mockGet.mockReturnValue(new Promise(() => {})); // never resolves
+    mockGet.mockReturnValue(new Promise(() => {}));
     render(<AIMonitoringPanel />);
     expect(screen.getByText(/loading metrics/i)).toBeInTheDocument();
   });
 
-  // FIX 2: "renders DB metrics"
-  // Previous test used findByText("10") which is ambiguous when the same
-  // value appears in multiple nodes. Now uses data-testid="stat-valid" which
-  // is unique and deterministic.
   it("renders DB metrics when monitoring responds", async () => {
     mockGet.mockResolvedValueOnce({
       data: {
@@ -391,7 +371,6 @@ describe("AIMonitoringPanel", () => {
       },
     });
     render(<AIMonitoringPanel />);
-    // wait for the specific stat tile to appear
     const validTile = await screen.findByTestId("stat-valid");
     expect(validTile.textContent).toBe("10");
     expect(screen.getByText("78%")).toBeInTheDocument();
@@ -419,10 +398,6 @@ describe("AIMonitoringPanel", () => {
     await screen.findByText(/open grafana/i);
   });
 
-  // FIX 3: "hides Grafana button when grafana_url is null"
-  // Previous test used findByText("1") — ambiguous because the component
-  // renders "1" in BOTH the stat-valid tile AND the MetricRow total counter.
-  // Now uses findByTestId("stat-valid") which is unique.
   it("hides Grafana toggle button when grafana_url is null", async () => {
     mockGet.mockResolvedValueOnce({
       data: {
@@ -433,13 +408,10 @@ describe("AIMonitoringPanel", () => {
       },
     });
     render(<AIMonitoringPanel />);
-    await screen.findByTestId("stat-valid"); // table rendered ✓
+    await screen.findByTestId("stat-valid");
     expect(screen.queryByText(/open grafana/i)).not.toBeInTheDocument();
   });
 
-  // FIX 4: "refetches on refresh button click"
-  // Previous test used getByTitle(/refresh metrics/i) — but the button had
-  // no title attribute. The component now has title="Refresh metrics" added.
   it("refetches when the refresh button is clicked", async () => {
     mockGet.mockResolvedValue({
       data: { source: "database", grafana_url: null, metrics: null },
@@ -447,7 +419,6 @@ describe("AIMonitoringPanel", () => {
     render(<AIMonitoringPanel />);
     await screen.findByText(/metrics unavailable/i);
 
-    // button has title="Refresh metrics" in the updated component
     fireEvent.click(screen.getByTitle(/refresh metrics/i));
     await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(2));
   });

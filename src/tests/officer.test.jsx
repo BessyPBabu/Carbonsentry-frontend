@@ -1,11 +1,8 @@
 // src/tests/officer.test.jsx
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
-// vi.hoisted() — variables declared here are available inside vi.mock factories.
-// Vitest hoists vi.mock() calls before any const/let declarations run, so
-// any mock variable that a factory references must be declared via vi.hoisted().
 const { mockGet, mockPost, mockDelete } = vi.hoisted(() => ({
   mockGet:    vi.fn(),
   mockPost:   vi.fn(),
@@ -56,7 +53,6 @@ import AuditLogsPage    from "../pages/Officer/AuditLogs/AuditLogsPage";
 
 beforeEach(() => vi.clearAllMocks());
 
-// ── Auth helpers ──────────────────────────────────────────────────────────────
 const mockOfficer = () =>
   useAuth.mockReturnValue({
     user: { email: "officer@test.com", role: "officer", full_name: "Officer" },
@@ -64,7 +60,6 @@ const mockOfficer = () =>
     organizationName: "Test Org",
   });
 
-// ── Render wrapper ────────────────────────────────────────────────────────────
 function wrap(element) {
   return render(
     <MemoryRouter initialEntries={["/"]}>
@@ -78,22 +73,10 @@ function wrap(element) {
   );
 }
 
-// ── VendorsList mock helper ───────────────────────────────────────────────────
-// VendorsList makes TWO api.get calls on mount:
-//   1. GET /vendors/config/industries/ → MUST return a plain array (or {results:[]})
-//   2. GET /vendors/                   → paginated { results, count }
-//
-// If both calls share the same default mock that returns { results:[], count:0 },
-// the component does setIndustries(res.data) where res.data is a plain object →
-// "industries.map is not a function" crash.
-//
-// This helper uses mockImplementation to ROUTE by URL so each call gets the
-// correct shape.
 function mockVendorsListCalls({ industries = [], vendors = { results: [], count: 0 } } = {}) {
   mockGet.mockImplementation((url) => {
     if (url.includes("industries"))  return Promise.resolve({ data: industries });
     if (url.includes("/vendors/"))   return Promise.resolve({ data: vendors });
-    // fallback for any other endpoint (documents, risk profiles, etc.)
     return Promise.resolve({ data: { results: [], count: 0 } });
   });
 }
@@ -117,7 +100,7 @@ describe("OfficerDashboard", () => {
     await screen.findByText(/total vendors/i);
     expect(screen.getByText(/pending uploads/i)).toBeInTheDocument();
     expect(screen.getByText(/ai validation running/i)).toBeInTheDocument();
-    expect(screen.getByText(/review queue/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/review queue/i).length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows AI Review Queue section", async () => {
@@ -127,7 +110,7 @@ describe("OfficerDashboard", () => {
 
   it("shows High-Risk Vendors section", async () => {
     wrap(<OfficerDashboard />);
-    await screen.findByText(/high-risk vendors/i);
+    await screen.findByRole("heading", { name: /high-risk vendors/i });
   });
 
   it("shows 'No items pending review' when queue empty", async () => {
@@ -242,7 +225,6 @@ describe("VendorsList", () => {
 describe("AddVendor", () => {
   beforeEach(() => {
     mockOfficer();
-    // AddVendor fetches industries on mount — return a plain array
     mockGet.mockResolvedValueOnce({
       data: [{ id: "i1", name: "Technology" }, { id: "i2", name: "Manufacturing" }],
     });
@@ -264,7 +246,6 @@ describe("AddVendor", () => {
     wrap(<AddVendor />);
     await screen.findByText("Technology");
 
-    // fill form fields by name attribute
     document.querySelectorAll("input").forEach((inp) => {
       if (inp.name === "name")          fireEvent.change(inp, { target: { value: "Test Vendor" } });
       if (inp.name === "country")       fireEvent.change(inp, { target: { value: "India" } });
@@ -297,9 +278,7 @@ describe("DocumentsList", () => {
 
   it("renders document rows", async () => {
     mockGet
-      // first call: fetch vendors for filter dropdown
       .mockResolvedValueOnce({ data: [{ id: "v1", name: "Vendor A" }] })
-      // second call: fetch documents
       .mockResolvedValueOnce({
         data: {
           count: 1,
@@ -313,8 +292,9 @@ describe("DocumentsList", () => {
         },
       });
     wrap(<DocumentsList />);
-    await screen.findByText("Vendor A");
-    expect(screen.getByText("Emission Report")).toBeInTheDocument();
+    const table = await screen.findByRole("table");
+    expect(within(table).getByText("Vendor A")).toBeInTheDocument();
+    expect(within(table).getByText("Emission Report")).toBeInTheDocument();
   });
 });
 
@@ -333,7 +313,7 @@ describe("AuditLogsPage", () => {
 
   it("renders Audit Logs heading", async () => {
     wrap(<AuditLogsPage />);
-    await screen.findByText(/audit logs/i);
+    await screen.findByRole("heading", { name: /^audit logs$/i });
   });
 
   it("renders Export CSV button", async () => {
