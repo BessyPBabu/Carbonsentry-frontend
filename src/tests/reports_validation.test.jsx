@@ -228,6 +228,46 @@ describe("ReportPreview", () => {
     renderPreview();
     await screen.findByText(/failed to load report/i);
   });
+
+  it("renders actual document status instead of a blank dash for compliance report doc details", async () => {
+    reportService.getReportById.mockResolvedValueOnce({
+      id: "r1", title: "Compliance Doc Status Test", status: "generated",
+      report_type: "vendor_compliance_report", generated_by_name: "Officer",
+      generated_at: new Date().toISOString(),
+      data: {
+        vendor: { name: "Acme", industry: "Technology", country: "India",
+                  compliance_status: "non_compliant", risk_level: "high" },
+        regulatory_applicability: [],
+        emission_verification: {
+          total_documents: 1, valid_documents: 0, flagged_documents: 1,
+          invalid_documents: 0, pending_documents: 0, expired_documents: 0,
+          average_ai_confidence: 62.4, reasonable_assurance_met: false,
+          document_details: [{
+            document_type: "Emission Report",
+            document_status: "flagged",
+            validation_status: "completed",
+            confidence: 62.4,
+            co2_extracted: 900.5,
+            co2_unit: "tonnes",
+            assurance_met: false,
+          }],
+        },
+        scope_emissions: { total_co2_tonnes: 900.5, risk_score: 55, exceeds_threshold: false },
+        regulatory_risk_exposure: [],
+        compliance_gap_analysis: [],
+        recommendations: [],
+      },
+    });
+    renderPreview();
+    await screen.findByText("Compliance Doc Status Test");
+    expect(screen.getByText("flagged")).toBeInTheDocument();
+    
+    const table = screen.getByRole("table");
+
+    expect(within(table).getByText("Emission Report")).toBeInTheDocument();
+    expect(within(table).getByText("flagged")).toBeInTheDocument();
+    expect(within(table).queryByText("—")).not.toBeInTheDocument();
+  });
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -340,6 +380,32 @@ describe("VendorRiskList", () => {
     expect(screen.getByRole("button", { name: /high.*critical/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /medium risk/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /low risk/i })).toBeInTheDocument();
+  });
+
+  it("badge reflects backend risk_level, not a locally recomputed score band", async () => {
+    riskService.getAllRiskProfiles.mockResolvedValueOnce([
+      { id: "p3", vendor_id: "v3", vendor_name: "Drift Corp", vendor_industry: "Energy",
+        risk_level: "critical", risk_score: "40.00",
+        validated_documents: 1, total_documents: 1,
+        avg_document_confidence: "90", total_co2_emissions: "20000" },
+    ]);
+    wrap(<VendorRiskList />);
+    await screen.findByText("Drift Corp");
+    const row = screen.getByText("Drift Corp").closest("tr");
+    expect(within(row).getByText("Critical")).toBeInTheDocument();
+  });
+
+  it("does not badge medium when backend says critical despite a low score", async () => {
+    riskService.getAllRiskProfiles.mockResolvedValueOnce([
+      { id: "p4", vendor_id: "v4", vendor_name: "LowScoreHighRisk Corp", vendor_industry: "Energy",
+        risk_level: "critical", risk_score: "20.00",
+        validated_documents: 1, total_documents: 1,
+        avg_document_confidence: "90", total_co2_emissions: "20000" },
+    ]);
+    wrap(<VendorRiskList />);
+    await screen.findByText("LowScoreHighRisk Corp");
+    const row = screen.getByText("LowScoreHighRisk Corp").closest("tr");
+    expect(row).not.toHaveTextContent(/medium/i);
   });
 });
 

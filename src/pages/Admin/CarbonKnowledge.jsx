@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import api from "../../services/api";
 
 // mirrors backend constants.py DEFAULT_THRESHOLDS exactly (tonnes CO2e)
-const INDUSTRY_THRESHOLDS = [
+// NEW
+const DEFAULT_INDUSTRY_THRESHOLDS = [
   { industry: "Energy",        low: 5000,  medium: 20000, high: 80000, critical: 250000 },
   { industry: "Logistics",     low: 2000,  medium: 10000, high: 30000, critical: 100000 },
   { industry: "Manufacturing", low: 1000,  medium: 5000,  high: 15000, critical: 50000  },
@@ -300,6 +302,23 @@ function RegulationsTab() {
 }
 
 function ThresholdsTab() {
+  const [rows, setRows] = useState(DEFAULT_INDUSTRY_THRESHOLDS);
+
+  useEffect(() => {
+    api.get('/ai-validation/thresholds/')
+      .then(res => {
+        const data = (res.data || []).map(t => ({
+          industry: t.industry_name,
+          low: parseFloat(t.low_threshold),
+          medium: parseFloat(t.medium_threshold),
+          high: parseFloat(t.high_threshold),
+          critical: parseFloat(t.critical_threshold),
+        }));
+        if (data.length > 0) setRows(data);
+      })
+      .catch(() => setRows(DEFAULT_INDUSTRY_THRESHOLDS));
+  }, []);
+
   const LEVEL_COLOR = {
     low:      "bg-green-100  text-green-800",
     medium:   "bg-yellow-100 text-yellow-800",
@@ -310,8 +329,8 @@ function ThresholdsTab() {
   return (
     <Section>
       <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 text-sm text-yellow-800 dark:text-yellow-300">
-        These thresholds are used by CarbonSentry's risk engine to classify vendor risk levels.
-        They mirror the values in <code className="bg-yellow-100 dark:bg-yellow-800 px-1 rounded">constants.py DEFAULT_THRESHOLDS</code> and are aligned with industry benchmarks from GHG Protocol sector guidance.
+        These thresholds are used by CarbonSentry's risk engine to classify vendor risk levels,
+        pulled live from your organization's configured industry thresholds.
       </div>
 
       <div className="overflow-x-auto">
@@ -327,7 +346,7 @@ function ThresholdsTab() {
             </tr>
           </thead>
           <tbody className="divide-y dark:divide-gray-700 bg-white dark:bg-gray-800">
-            {INDUSTRY_THRESHOLDS.map(row => (
+            {rows.map(row => (
               <tr key={row.industry} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                 <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{row.industry}</td>
                 {["low","medium","high","critical"].map(level => (

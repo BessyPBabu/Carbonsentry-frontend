@@ -5,16 +5,6 @@ import api from "../../../services/api";
 import { getDocumentBadgeClass } from "../../../services/constants";
 import { formatDate } from "../../../utils/formatters";
 
-// Derive risk level from numerical score — matches backend _risk_score bands
-const levelFromScore = (score) => {
-  if (score === null || score === undefined) return null;
-  const n = parseFloat(score);
-  if (isNaN(n)) return null;
-  if (n <= 25) return "low";
-  if (n <= 50) return "medium";
-  if (n <= 75) return "high";
-  return "critical";
-};
 
 const RISK_SCORE_DISPLAY_DIVISOR = 20;
 
@@ -89,9 +79,9 @@ export default function VendorDetails() {
 
   const pendingDocs = documents.filter((d) => d.status === "pending");
 
-  // Derive displayed risk level from numerical score so badge matches score
+
   const rawScore     = riskProfile ? parseFloat(riskProfile.risk_score) : null;
-  const derivedLevel = levelFromScore(rawScore) || vendor.risk_level || "unknown";
+  const derivedLevel = riskProfile?.risk_level || vendor.risk_level || "unknown";
   const displayScore = rawScore !== null && !isNaN(rawScore)
     ? (rawScore / RISK_SCORE_DISPLAY_DIVISOR).toFixed(1)
     : null;
@@ -143,7 +133,8 @@ export default function VendorDetails() {
           color={
             derivedLevel === "low"      ? "green"  :
             derivedLevel === "medium"   ? "yellow" :
-            derivedLevel === "high"     ? "orange" : "red"
+            derivedLevel === "high"     ? "orange" :
+            derivedLevel === "critical" ? "red"    : "gray"
           }
         />
         <InfoCard title="Total Documents"  value={documents.length} />

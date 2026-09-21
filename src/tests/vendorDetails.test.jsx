@@ -97,4 +97,18 @@ describe("VendorDetails", () => {
     renderPage();
     await screen.findByText(/exceeds threshold/i);
   });
+
+  it("shows backend risk_level even when score would imply a different band", async () => {
+    mockGet.mockImplementation((url) => {
+      if (url === "/vendors/v1/") return Promise.resolve({ data: VENDOR });
+      if (url.includes("/documents/")) return Promise.resolve({ data: [] });
+      if (url.includes("risk-profiles")) return Promise.resolve({
+        data: [{ id: "rp1", vendor_id: "v1", risk_level: "critical",
+                 total_co2_emissions: "20000.00", risk_score: "35", exceeds_threshold: true }],
+      });
+      return Promise.resolve({ data: [] });
+    });
+    renderPage();
+    await screen.findByText(/critical/i);
+  });
 });

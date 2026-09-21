@@ -5,17 +5,6 @@ import { toast } from "react-toastify";
 import api from "../../../services/api";
 import { useAuth } from "../../../context/AuthContext";
 
-// Derive risk level from numerical score — matches backend _risk_score bands:
-//   0–25 → low | 26–50 → medium | 51–75 → high | 76–100 → critical
-const levelFromScore = (score) => {
-  if (score === null || score === undefined) return null;
-  const n = parseFloat(score);
-  if (isNaN(n)) return null;
-  if (n <= 25) return "low";
-  if (n <= 50) return "medium";
-  if (n <= 75) return "high";
-  return "critical";
-};
 
 const RISK_SCORE_DISPLAY_DIVISOR = 20;
 
@@ -260,9 +249,10 @@ export default function VendorsList() {
             </thead>
             <tbody className="divide-y dark:divide-gray-700">
               {vendors.map((vendor) => {
+
                 const profile     = riskMap[String(vendor.id)];
                 const rawScore    = profile ? parseFloat(profile.risk_score) : null;
-                const derived     = levelFromScore(rawScore) || vendor.risk_level || "unknown";
+                const derived     = profile?.risk_level || vendor.risk_level || "unknown";
                 const scoreLabel  = rawScore !== null && !isNaN(rawScore)
                   ? `${(rawScore / RISK_SCORE_DISPLAY_DIVISOR).toFixed(1)}/5`
                   : null;

@@ -280,9 +280,9 @@ function VendorComplianceContent({ data }) {
                         <p className="text-sm font-medium text-gray-700 mb-2">Document Detail</p>
                         <DataTable
                             headers={['Document Type', 'Status', 'Confidence', 'CO₂ (tonnes)', 'Assurance']}
-                            rows={docs.map(d => [
+                            rows={docs.map((d, i) => [
                                 d.document_type,
-                                <StatusPill key={d.document_type} value={d.status} />,
+                                <StatusPill key={`${d.document_type}-${i}`} value={d.document_status} />,
                                 d.confidence != null ? `${d.confidence.toFixed(1)}%` : '—',
                                 d.co2_extracted != null ? d.co2_extracted.toLocaleString() : '—',
                                 d.assurance_met

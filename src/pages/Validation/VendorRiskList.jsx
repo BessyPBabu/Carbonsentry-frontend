@@ -5,31 +5,20 @@ import RiskBadge from '../../components/Validation/RiskBadge';
 import Button from '../../components/Common/Button';
 import { useAuth } from '../../context/AuthContext';
 
-// Matches backend RISK_SCORE_DISPLAY_DIVISOR = 20
+
 const toDisplayScore = (score) => {
   if (score === null || score === undefined) return 'N/A';
   const n = parseFloat(score);
   if (isNaN(n)) return 'N/A';
   return (n / 20).toFixed(1);
 };
-// Derive badge level from numerical score — matches backend risk_score bands:
-//   0–25 → low | 26–50 → medium | 51–75 → high | 76–100 → critical
-const levelFromScore = (score) => {
-  if (score === null || score === undefined) return 'unknown';
-  const n = parseFloat(score);
-  if (isNaN(n)) return 'unknown';
-  if (n <= 25) return 'low';
-  if (n <= 50) return 'medium';
-  if (n <= 75) return 'high';
-  return 'critical';
-};
 
 const RISK_BAND_LABEL = {
-  low:      'Low risk (0.0–1.2 / 5)',
-  medium:   'Medium risk (1.3–2.5 / 5)',
-  high:     'High risk (2.6–3.7 / 5)',
-  critical: 'Critical risk (3.8–5.0 / 5)',
-  unknown:  'Unknown',
+  low:      'Low risk - within industry emission threshold',
+  medium:   'Medium risk - approaching industry emission threshold',
+  high:     'High risk - elevated emissions for this industry',
+  critical: 'Critical risk - exceeds industry emission threshold',
+  unknown:  'Not yet assessed',
 };
 
 const FILTERS = [
@@ -57,21 +46,15 @@ const VendorRiskList = () => {
       setLoading(true);
       let data = await riskService.getAllRiskProfiles();
 
+      
       if (filter === 'high') {
-      data = data.filter(p => {
-        const lvl = levelFromScore(p.risk_score);
-        return lvl === 'high' || lvl === 'critical';
-      });
+      data = data.filter(p => p.risk_level === 'high' || p.risk_level === 'critical');
     } else if (filter !== 'all') {
-      data = data.filter(p => levelFromScore(p.risk_score) === filter);
+      data = data.filter(p => p.risk_level === filter);
     }
 
     const ORDER = { critical: 0, high: 1, medium: 2, low: 3, unknown: 4 };
-    data.sort((a, b) => {
-      const la = levelFromScore(a.risk_score);
-      const lb = levelFromScore(b.risk_score);
-      return (ORDER[la] ?? 5) - (ORDER[lb] ?? 5);
-    })
+    data.sort((a, b) => (ORDER[a.risk_level] ?? 5) - (ORDER[b.risk_level] ?? 5))
 
       setRiskProfiles(data);
     } catch (error) {
@@ -152,9 +135,9 @@ const VendorRiskList = () => {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {riskProfiles.map((profile) => {
+                
                 const displayScore = toDisplayScore(profile.risk_score);
-                // Derive level from score — same logic as detail page and backend bands
-                const derivedLevel = levelFromScore(profile.risk_score);
+                const derivedLevel = profile.risk_level || 'unknown';
                 const scoreColour  =
                   derivedLevel === 'critical' ? 'text-red-700 font-bold' :
                   derivedLevel === 'high'     ? 'text-orange-600 font-semibold' :

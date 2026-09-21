@@ -10,39 +10,10 @@ import RiskBadge         from "../../components/Validation/RiskBadge";
 import { safeFloat }     from "../../utils/formatters";
 
 const RISK_SCORE_DISPLAY_DIVISOR = 20;
-
-// Must match backend constants.py DEFAULT_THRESHOLDS exactly
-const INDUSTRY_THRESHOLDS = {
-  Manufacturing: { low: 1000,  medium: 5000,  high: 15000, critical: 50000  },
-  Technology:    { low: 300,   medium: 1500,  high: 5000,  critical: 12000  },
-  Retail:        { low: 300,   medium: 1500,  high: 3000,  critical: 8000   },
-  Logistics:     { low: 2000,  medium: 10000, high: 30000, critical: 100000 },
-  Energy:        { low: 5000,  medium: 20000, high: 80000, critical: 250000 },
-  Healthcare:    { low: 400,   medium: 2000,  high: 7000,  critical: 20000  },
-};
 const DEFAULT_THRESHOLD = { low: 1000, medium: 5000, high: 10000, critical: 50000 };
 
 // Matches backend MIN_AUTO_APPROVE_CONFIDENCE = 50
 const MIN_AUTO_APPROVE_CONFIDENCE = 50;
-
-/**
- * Derive the risk level label from the numerical risk_score (0–100).
- * This matches the backend _risk_score() bands:
- *   0–25   → low      (0.0–1.2 / 5)
- *   26–50  → medium   (1.3–2.5 / 5)
- *   51–75  → high     (2.6–3.7 / 5)
- *   76–100 → critical (3.8–5.0 / 5)
- *
- * We use this instead of riskProfile.risk_level because that field is set by
- * the backend based on CO2 emissions thresholds alone, which can produce
- * "medium" even for a vendor with a score of 1.0/5.
- */
-const levelFromScore = (score) => {
-  if (score <= 25) return 'low';
-  if (score <= 50) return 'medium';
-  if (score <= 75) return 'high';
-  return 'critical';
-};
 
 const VendorRiskAnalysis = () => {
   const { vendorId } = useParams();
@@ -52,6 +23,24 @@ const VendorRiskAnalysis = () => {
   const [validations,  setValidations]  = useState([]);
   const [latestReview, setLatestReview] = useState(null);
   const [loading,      setLoading]      = useState(true);
+  const [industryThresholds, setIndustryThresholds] = useState({});
+
+  useEffect(() => {
+    api.get('/ai-validation/thresholds/')
+      .then(res => {
+        const map = {};
+        (res.data || []).forEach(t => {
+          map[t.industry_name] = {
+            low: parseFloat(t.low_threshold),
+            medium: parseFloat(t.medium_threshold),
+            high: parseFloat(t.high_threshold),
+            critical: parseFloat(t.critical_threshold),
+          };
+        });
+        setIndustryThresholds(map);
+      })
+      .catch(() => setIndustryThresholds({}));
+  }, []);
 
   useEffect(() => { fetchAllData(); }, [vendorId]); // eslint-disable-line
 
@@ -160,7 +149,7 @@ const VendorRiskAnalysis = () => {
     // ── 3. Emissions level ───────────────────────────────────────────────────
     if (riskProfile.total_co2_emissions) {
       const emissions = safeFloat(riskProfile.total_co2_emissions);
-      const threshold = INDUSTRY_THRESHOLDS[riskProfile.vendor_industry] || DEFAULT_THRESHOLD;
+      const threshold = industryThresholds[riskProfile.vendor_industry] || DEFAULT_THRESHOLD;
 
       if (emissions > threshold.critical) {
         factors.push({
@@ -294,10 +283,9 @@ const VendorRiskAnalysis = () => {
 
   const riskFactors = calculateRiskFactors();
 
-  // Derive level from score — this is what the user sees and must be consistent
   const rawScore     = safeFloat(riskProfile.risk_score);   // 0–100
   const displayScore = (rawScore / RISK_SCORE_DISPLAY_DIVISOR).toFixed(1); // X.X out of 5
-  const derivedLevel = levelFromScore(rawScore);
+  const derivedLevel = riskProfile.risk_level || 'unknown';
 
   const recommendedActions = generateRecommendedActions(derivedLevel);
 
