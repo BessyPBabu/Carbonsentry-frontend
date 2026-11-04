@@ -794,3 +794,121 @@ describe("ReportPreview compliance report schema", () => {
     expect(within(row).getByText("—")).toBeInTheDocument();
   });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ReportPreview — reduction roadmap and carbon credit guidance
+// ══════════════════════════════════════════════════════════════════════════════
+describe("ReportPreview roadmap and carbon credit guidance", () => {
+  const ROADMAP = {
+    current_emissions_tco2e: 50000, target_emissions_tco2e: 750,
+    reduction_needed_tco2e: 49250, reduction_needed_pct: 98.5,
+    strategies: [
+      { strategy: "Switch to renewable energy", description: "Source electricity from solar/wind PPAs.",
+        typical_reduction_pct: 40, timeframe: "6–18 months", cost_level: "medium" },
+      { strategy: "Internal carbon price", description: "Set a shadow price.",
+        typical_reduction_pct: 0, timeframe: "Policy change", cost_level: "none" },
+    ],
+    note: "Strategies are ordered from quickest wins to longer-term structural changes.",
+  };
+  const CREDITS = {
+    credits_needed_tco2e: 50000,
+    estimated_cost_usd_low: 250000, estimated_cost_usd_high: 2500000,
+    estimated_cost_inr_low: 20750000, estimated_cost_inr_high: 207500000,
+    credit_types: [{
+      type: "Gold Standard Credit", standard: "Gold Standard Foundation",
+      price_range: "USD 15–50 per tonne", best_for: "Premium quality", how_to_buy: "Via certified brokers",
+    }],
+    steps: ["Step 1: Calculate verified emission baseline", "Step 2: Set internal reduction targets"],
+    important_note: "Carbon credits are a bridge measure, not a substitute for reductions.",
+  };
+
+  function renderReport(extra) {
+    reportService.getReportById.mockResolvedValueOnce({
+      id: "r1", title: "Roadmap Report", status: "generated", report_type: "vendor_compliance_report",
+      generated_by_name: "Officer", generated_at: new Date().toISOString(),
+      data: { vendor: { name: "Acme" }, ...extra },
+    });
+    return render(
+      <MemoryRouter initialEntries={["/officer/reports/r1"]}>
+        <Routes>
+          <Route path="/officer/reports/:reportId" element={<ReportPreview />} />
+        </Routes>
+      </MemoryRouter>
+    );
+  }
+
+  const heading = (name) => screen.queryByRole("heading", { name });
+
+  beforeEach(() => mockOfficer());
+
+  it("renders the reduction roadmap with figures, strategies and note", async () => {
+    renderReport({ reduction_roadmap: ROADMAP });
+    await screen.findByText("Roadmap Report");
+    const section = heading("CO₂ Reduction Roadmap").parentElement;
+    expect(within(section).getByText("50,000 tCO₂e")).toBeInTheDocument();
+    expect(within(section).getByText("750 tCO₂e")).toBeInTheDocument();
+    expect(within(section).getByText("49,250 tCO₂e (98.5%)")).toBeInTheDocument();
+    expect(within(section).getByText("Switch to renewable energy")).toBeInTheDocument();
+    expect(within(section).getByText("Source electricity from solar/wind PPAs.")).toBeInTheDocument();
+    expect(within(section).getByText("40%")).toBeInTheDocument();
+    expect(within(section).getByText("0%")).toBeInTheDocument();
+    expect(within(section).getByText(/ordered from quickest wins/)).toBeInTheDocument();
+    expect(within(section).getAllByRole("row")).toHaveLength(3);
+  });
+
+  it("renders carbon credit guidance with ranges, types, steps and note", async () => {
+    renderReport({ carbon_credit_guidance: CREDITS });
+    await screen.findByText("Roadmap Report");
+    const section = heading("Carbon Credit Guidance").parentElement;
+    expect(within(section).getByText("50,000 tCO₂e")).toBeInTheDocument();
+    expect(within(section).getByText("$250,000 – $2,500,000")).toBeInTheDocument();
+    expect(within(section).getByText("₹20,750,000 – ₹207,500,000")).toBeInTheDocument();
+    expect(within(section).getByText("Gold Standard Credit")).toBeInTheDocument();
+    expect(within(section).getByText("USD 15–50 per tonne")).toBeInTheDocument();
+    const steps = within(section).getAllByRole("listitem");
+    expect(steps.map((li) => li.textContent)).toEqual([
+      "Calculate verified emission baseline", "Set internal reduction targets",
+    ]);
+    expect(within(section).getByText(/bridge measure/)).toBeInTheDocument();
+  });
+
+  it.each([
+    ["null", { reduction_roadmap: null, carbon_credit_guidance: null }],
+    ["missing", {}],
+    ["empty objects", { reduction_roadmap: {}, carbon_credit_guidance: {} }],
+    ["empty lists", {
+      reduction_roadmap: { strategies: [] },
+      carbon_credit_guidance: { credit_types: [], steps: [] },
+    }],
+    ["wrong types", { reduction_roadmap: "bad", carbon_credit_guidance: ["bad"] }],
+  ])("renders no roadmap or credit headings when sections are %s", async (_label, extra) => {
+    renderReport(extra);
+    await screen.findByText("Roadmap Report");
+    expect(heading("CO₂ Reduction Roadmap")).not.toBeInTheDocument();
+    expect(heading("Carbon Credit Guidance")).not.toBeInTheDocument();
+  });
+
+  it("keeps a real 0 in roadmap figures and does not invent missing ones", async () => {
+    renderReport({
+      reduction_roadmap: {
+        current_emissions_tco2e: 0, target_emissions_tco2e: 0, reduction_needed_tco2e: 0,
+        reduction_needed_pct: 0, strategies: [{ strategy: "Only name" }],
+      },
+    });
+    await screen.findByText("Roadmap Report");
+    const section = heading("CO₂ Reduction Roadmap").parentElement;
+    expect(within(section).getAllByText("0 tCO₂e").length).toBe(2);
+    expect(within(section).getByText("0 tCO₂e (0%)")).toBeInTheDocument();
+    const row = within(section).getByText("Only name").closest("tr");
+    expect(within(row).getAllByText("—")).toHaveLength(3);
+  });
+
+  it("renders partial credit guidance without empty tables", async () => {
+    renderReport({ carbon_credit_guidance: { credits_needed_tco2e: 0, estimated_cost_usd_low: 0, estimated_cost_usd_high: 0 } });
+    await screen.findByText("Roadmap Report");
+    const section = heading("Carbon Credit Guidance").parentElement;
+    expect(within(section).getByText("$0 – $0")).toBeInTheDocument();
+    expect(within(section).queryByRole("table")).not.toBeInTheDocument();
+    expect(within(section).queryByRole("list")).not.toBeInTheDocument();
+  });
+});

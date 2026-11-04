@@ -203,6 +203,109 @@ export default function ReportPreview() {
 
 /* ── VendorComplianceContent ─────────────────────────────────────────────── */
 
+function rangeLabel(prefix, low, high) {
+    const l = num(low, null);
+    const h = num(high, null);
+    if (l === null && h === null) return '—';
+    return `${prefix}${fmtNum(l)} – ${prefix}${fmtNum(h)}`;
+}
+
+function ReductionRoadmapSection({ roadmap }) {
+    if (!roadmap || typeof roadmap !== 'object') return null;
+    const strategies = list(roadmap.strategies).filter((s) => s && typeof s === 'object');
+    const hasFigures = ['current_emissions_tco2e', 'target_emissions_tco2e', 'reduction_needed_tco2e']
+        .some((k) => num(roadmap[k], null) !== null);
+    if (!hasFigures && strategies.length === 0) return null;
+
+    const pct = num(roadmap.reduction_needed_pct, null);
+
+    return (
+        <Section title="CO₂ Reduction Roadmap">
+            {hasFigures && (
+                <StatGrid items={[
+                    { label: 'Current Emissions', value: `${fmtNum(roadmap.current_emissions_tco2e)} tCO₂e` },
+                    { label: 'Target Emissions',  value: `${fmtNum(roadmap.target_emissions_tco2e)} tCO₂e` },
+                    {
+                        label: 'Reduction Needed',
+                        value: `${fmtNum(roadmap.reduction_needed_tco2e)} tCO₂e${pct !== null ? ` (${pct}%)` : ''}`,
+                    },
+                ]} />
+            )}
+            {strategies.length > 0 && (
+                <div className="mt-4">
+                    <DataTable
+                        headers={['Strategy', 'Typical Reduction', 'Timeframe', 'Cost']}
+                        rows={strategies.map((st, i) => [
+                            <div key={`strategy-${i}`}>
+                                <p>{text(st.strategy)}</p>
+                                {text(st.description, null) && (
+                                    <p className="text-xs text-gray-500 mt-0.5">{st.description}</p>
+                                )}
+                            </div>,
+                            num(st.typical_reduction_pct, null) !== null ? `${num(st.typical_reduction_pct)}%` : '—',
+                            text(st.timeframe),
+                            text(st.cost_level),
+                        ])}
+                    />
+                </div>
+            )}
+            {text(roadmap.note, null) && (
+                <p className="text-xs text-gray-500 mt-3">{roadmap.note}</p>
+            )}
+        </Section>
+    );
+}
+
+function CarbonCreditSection({ guidance }) {
+    if (!guidance || typeof guidance !== 'object') return null;
+    const creditTypes = list(guidance.credit_types).filter((c) => c && typeof c === 'object');
+    const steps = list(guidance.steps).filter((s) => text(s, null) !== null);
+    const hasFigures = [
+        'credits_needed_tco2e', 'estimated_cost_usd_low', 'estimated_cost_usd_high',
+        'estimated_cost_inr_low', 'estimated_cost_inr_high',
+    ].some((k) => num(guidance[k], null) !== null);
+    if (!hasFigures && creditTypes.length === 0 && steps.length === 0) return null;
+
+    return (
+        <Section title="Carbon Credit Guidance">
+            {hasFigures && (
+                <StatGrid items={[
+                    { label: 'Credits Needed',       value: `${fmtNum(guidance.credits_needed_tco2e)} tCO₂e` },
+                    { label: 'Estimated Cost (USD)', value: rangeLabel('$', guidance.estimated_cost_usd_low, guidance.estimated_cost_usd_high) },
+                    { label: 'Estimated Cost (INR)', value: rangeLabel('₹', guidance.estimated_cost_inr_low, guidance.estimated_cost_inr_high) },
+                ]} />
+            )}
+            {creditTypes.length > 0 && (
+                <div className="mt-4">
+                    <DataTable
+                        headers={['Credit Type', 'Price Range', 'Best For', 'How to Buy']}
+                        rows={creditTypes.map((c, i) => [
+                            <div key={`credit-${i}`}>
+                                <p>{text(c.type)}</p>
+                                {text(c.standard, null) && (
+                                    <p className="text-xs text-gray-500 mt-0.5">{c.standard}</p>
+                                )}
+                            </div>,
+                            text(c.price_range),
+                            text(c.best_for),
+                            text(c.how_to_buy),
+                        ])}
+                    />
+                </div>
+            )}
+            {steps.length > 0 && (
+                <ol className="mt-4 space-y-1 list-decimal pl-5 text-sm text-gray-700">
+                    {steps.map((st, i) => <li key={i}>{st.replace(/^Step\s*\d+:\s*/i, '')}</li>)}
+                </ol>
+            )}
+            {text(guidance.important_note, null) && (
+                <p className="text-xs text-gray-500 mt-3">{guidance.important_note}</p>
+            )}
+        </Section>
+    );
+}
+
+
 function VendorComplianceContent({ data }) {
     const vendor    = data.vendor || {};
     const ev        = data.emission_verification || {};
@@ -442,6 +545,9 @@ function VendorComplianceContent({ data }) {
                     <p className="text-sm text-gray-500">No recommendations</p>
                 )}
             </Section>
+
+            <ReductionRoadmapSection roadmap={data.reduction_roadmap} />
+            <CarbonCreditSection guidance={data.carbon_credit_guidance} />
 
             {/* Vendor retention */}
             {hasRetention && (
