@@ -21,6 +21,11 @@ export const scoreLabel = (score) => {
     return n === null ? 'N/A' : `${n.toFixed(1)} / 100`;
 };
 
+export const pctLabel = (value) => {
+    const n = num(value, null);
+    return n === null ? '—' : `${n}%`;
+};
+
 export const list = (value) => (Array.isArray(value) ? value : []);
 
 export const resolveRecommendations = (data) => {

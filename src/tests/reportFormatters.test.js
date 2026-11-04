@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { text, num, fmtNum, scoreLabel, list, resolveRecommendations } from "../utils/reportFormatters";
+import { text, num, fmtNum, pctLabel, scoreLabel, list, resolveRecommendations } from "../utils/reportFormatters";
 
 describe("reportFormatters", () => {
   it("text returns the fallback only for null, undefined and blank strings", () => {
@@ -31,6 +31,12 @@ describe("reportFormatters", () => {
     expect(scoreLabel(undefined)).toBe("N/A");
     expect(scoreLabel(0)).toBe("0.0 / 100");
     expect(scoreLabel("55.5")).toBe("55.5 / 100");
+  });
+
+  it("pctLabel shows a dash for null and keeps a real 0%", () => {
+    expect(pctLabel(null)).toBe("—");
+    expect(pctLabel(0)).toBe("0%");
+    expect(pctLabel(62.4)).toBe("62.4%");
   });
 
   it("list always returns an array", () => {

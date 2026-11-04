@@ -912,3 +912,79 @@ describe("ReportPreview roadmap and carbon credit guidance", () => {
     expect(within(section).queryByRole("list")).not.toBeInTheDocument();
   });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ReportPreview — null vs zero in emissions overview and document audit
+// ══════════════════════════════════════════════════════════════════════════════
+describe("ReportPreview null vs zero", () => {
+  function renderReport(reportType, data) {
+    reportService.getReportById.mockResolvedValueOnce({
+      id: "r1", title: "NullZero Report", status: "generated", report_type: reportType,
+      generated_by_name: "Officer", generated_at: new Date().toISOString(), data,
+    });
+    return render(
+      <MemoryRouter initialEntries={["/officer/reports/r1"]}>
+        <Routes>
+          <Route path="/officer/reports/:reportId" element={<ReportPreview />} />
+        </Routes>
+      </MemoryRouter>
+    );
+  }
+  const section = (name) => screen.getByRole("heading", { name }).parentElement;
+
+  beforeEach(() => mockOfficer());
+
+  it("emissions overview shows a dash for null values and keeps a real 0", async () => {
+    const { unmount } = renderReport("emissions_overview", {
+      summary: { total_vendors_with_data: null, total_emissions: null, unit: "tonnes CO2e" },
+      vendor_emissions: [{ vendor_id: "v1", vendor_name: "Nullco", industry: null, total_co2: null, risk_level: "unknown" }],
+      by_industry: [{ industry: "Steel", total_co2: null, vendor_count: null }],
+    });
+    await screen.findByText("NullZero Report");
+    expect(within(section("Emissions Summary")).getAllByText("—")).toHaveLength(2);
+    expect(within(screen.getByText("Nullco").closest("tr")).getAllByText("—")).toHaveLength(2);
+    expect(within(screen.getByText("Steel").closest("tr")).getAllByText("—")).toHaveLength(2);
+    unmount();
+
+    renderReport("emissions_overview", {
+      summary: { total_vendors_with_data: 0, total_emissions: 0, unit: "tonnes CO2e" },
+      vendor_emissions: [{ vendor_id: "v1", vendor_name: "Zeroco", industry: "Steel", total_co2: 0, risk_level: "low" }],
+      by_industry: [{ industry: "Steel", total_co2: 0, vendor_count: 0 }],
+    });
+    await screen.findByText("NullZero Report");
+    const summary = section("Emissions Summary");
+    expect(within(summary).getByText("0")).toBeInTheDocument();
+    expect(within(summary).getByText("0 tonnes CO2e")).toBeInTheDocument();
+    expect(within(screen.getByText("Zeroco").closest("tr")).getByText("0")).toBeInTheDocument();
+    expect(within(section("By Industry")).getAllByText("0")).toHaveLength(2);
+    expect(within(summary).queryByText("—")).not.toBeInTheDocument();
+  });
+
+  it("document audit shows a dash for null values and keeps a real 0", async () => {
+    const { unmount } = renderReport("document_audit", {
+      validation_summary: {},
+      quality_metrics: { avg_overall_confidence: null },
+      vendor_summaries: [{ vendor_name: "Nullco", total_validations: null, flagged: null, avg_confidence: null }],
+    });
+    await screen.findByText("NullZero Report");
+    expect(within(section("Validation Summary")).getAllByText("—")).toHaveLength(6);
+    expect(within(section("Quality Metrics")).getAllByText("—")).toHaveLength(4);
+    expect(within(screen.getByText("Nullco").closest("tr")).getAllByText("—")).toHaveLength(3);
+    unmount();
+
+    renderReport("document_audit", {
+      validation_summary: { total_validations: 0, completed: 0, auto_approved: 0, flagged_for_review: 0, auto_approval_rate: 0, failed: 0 },
+      quality_metrics: { avg_overall_confidence: 0, avg_readability_score: 0, avg_relevance_score: 0, avg_authenticity_score: 0 },
+      vendor_summaries: [{ vendor_name: "Zeroco", total_validations: 0, flagged: 0, avg_confidence: 0 }],
+    });
+    await screen.findByText("NullZero Report");
+    const summary = section("Validation Summary");
+    expect(within(summary).getAllByText("0")).toHaveLength(5);
+    expect(within(summary).getByText("0%")).toBeInTheDocument();
+    expect(within(section("Quality Metrics")).getAllByText("0%")).toHaveLength(4);
+    const row = screen.getByText("Zeroco").closest("tr");
+    expect(within(row).getAllByText("0")).toHaveLength(2);
+    expect(within(row).getByText("0%")).toBeInTheDocument();
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
+  });
+});

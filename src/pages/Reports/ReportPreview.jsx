@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import reportService from '../../services/reportService';
 import { useAuth } from '../../context/AuthContext';
 import {
-    text, num, fmtNum, scoreLabel, list, resolveRecommendations,
+    text, num, fmtNum, pctLabel, scoreLabel, list, resolveRecommendations,
 } from '../../utils/reportFormatters';
 
 const formatDate = (iso) => {
@@ -675,15 +675,20 @@ function ComplianceSummaryContent({ data }) {
 
 function EmissionsOverviewContent({ data }) {
     const s          = data.summary || {};
-    const topEmitters = data.vendor_emissions || [];
-    const byIndustry  = data.by_industry || [];
+    const topEmitters = list(data.vendor_emissions);
+    const byIndustry  = list(data.by_industry);
 
     return (
         <div className="space-y-8">
             <Section title="Emissions Summary">
                 <StatGrid items={[
-                    { label: 'Vendors with Data', value: s.total_vendors_with_data || 0 },
-                    { label: 'Total Emissions',   value: `${(s.total_emissions || 0).toLocaleString()} ${s.unit || 'tonnes CO2e'}` },
+                    { label: 'Vendors with Data', value: fmtNum(s.total_vendors_with_data) },
+                    {
+                        label: 'Total Emissions',
+                        value: num(s.total_emissions, null) === null
+                            ? '—'
+                            : `${fmtNum(s.total_emissions)} ${text(s.unit, 'tonnes CO2e')}`,
+                    },
                 ]} />
             </Section>
             {topEmitters.length > 0 && (
@@ -692,9 +697,9 @@ function EmissionsOverviewContent({ data }) {
                         headers={['Rank', 'Vendor', 'Industry', 'CO₂ (tonnes)', 'Risk']}
                         rows={topEmitters.slice(0, 15).map((v, i) => [
                             i + 1,
-                            v.vendor_name,
-                            v.industry || '—',
-                            v.total_co2.toLocaleString(),
+                            text(v.vendor_name),
+                            text(v.industry),
+                            fmtNum(v.total_co2),
                             <StatusPill key={v.vendor_id} value={v.risk_level} />,
                         ])}
                     />
@@ -704,7 +709,7 @@ function EmissionsOverviewContent({ data }) {
                 <Section title="By Industry">
                     <DataTable
                         headers={['Industry', 'Total CO₂ (tonnes)', 'Vendors']}
-                        rows={byIndustry.map(row => [row.industry, row.total_co2.toLocaleString(), row.vendor_count])}
+                        rows={byIndustry.map(row => [text(row.industry), fmtNum(row.total_co2), fmtNum(row.vendor_count)])}
                     />
                 </Section>
             )}
@@ -715,26 +720,26 @@ function EmissionsOverviewContent({ data }) {
 function DocumentAuditContent({ data }) {
     const vs             = data.validation_summary || {};
     const qm             = data.quality_metrics || {};
-    const vendorSummaries = data.vendor_summaries || [];
+    const vendorSummaries = list(data.vendor_summaries);
 
     return (
         <div className="space-y-8">
             <Section title="Validation Summary">
                 <StatGrid items={[
-                    { label: 'Total Validations',  value: vs.total_validations || 0 },
-                    { label: 'Completed',          value: vs.completed || 0 },
-                    { label: 'Auto-Approved',      value: vs.auto_approved || 0 },
-                    { label: 'Flagged for Review', value: vs.flagged_for_review || 0 },
-                    { label: 'Auto-Approval Rate', value: `${vs.auto_approval_rate || 0}%` },
-                    { label: 'Failed',             value: vs.failed || 0 },
+                    { label: 'Total Validations',  value: fmtNum(vs.total_validations) },
+                    { label: 'Completed',          value: fmtNum(vs.completed) },
+                    { label: 'Auto-Approved',      value: fmtNum(vs.auto_approved) },
+                    { label: 'Flagged for Review', value: fmtNum(vs.flagged_for_review) },
+                    { label: 'Auto-Approval Rate', value: pctLabel(vs.auto_approval_rate) },
+                    { label: 'Failed',             value: fmtNum(vs.failed) },
                 ]} />
             </Section>
             <Section title="Quality Metrics">
                 <StatGrid items={[
-                    { label: 'Avg Overall Confidence', value: `${qm.avg_overall_confidence || 0}%` },
-                    { label: 'Avg Readability Score',  value: `${qm.avg_readability_score || 0}%` },
-                    { label: 'Avg Relevance Score',    value: `${qm.avg_relevance_score || 0}%` },
-                    { label: 'Avg Authenticity Score', value: `${qm.avg_authenticity_score || 0}%` },
+                    { label: 'Avg Overall Confidence', value: pctLabel(qm.avg_overall_confidence) },
+                    { label: 'Avg Readability Score',  value: pctLabel(qm.avg_readability_score) },
+                    { label: 'Avg Relevance Score',    value: pctLabel(qm.avg_relevance_score) },
+                    { label: 'Avg Authenticity Score', value: pctLabel(qm.avg_authenticity_score) },
                 ]} />
             </Section>
             {vendorSummaries.length > 0 && (
@@ -742,7 +747,7 @@ function DocumentAuditContent({ data }) {
                     <DataTable
                         headers={['Vendor', 'Validations', 'Flagged', 'Avg Confidence']}
                         rows={vendorSummaries.slice(0, 25).map(v => [
-                            v.vendor_name, v.total_validations, v.flagged, `${v.avg_confidence}%`,
+                            text(v.vendor_name), fmtNum(v.total_validations), fmtNum(v.flagged), pctLabel(v.avg_confidence),
                         ])}
                     />
                 </Section>
