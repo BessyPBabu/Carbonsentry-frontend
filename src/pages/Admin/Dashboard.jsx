@@ -18,7 +18,7 @@ export default function AdminDashboard() {
         complianceRate: 0,
         vendorsWithExpiredDocs: 0,
         aiReviewQueueItems: 0,
-        avgRiskScore: "0.0",
+        avgRiskScore: null,
     });
 
     const [userOverview, setUserOverview] = useState({
@@ -114,17 +114,19 @@ export default function AdminDashboard() {
                 ),
             ].length;
 
+            const scores = profiles
+                .filter((p) => p.risk_score !== null && p.risk_score !== undefined)
+                .map((p) => parseFloat(p.risk_score))
+                .filter((n) => !isNaN(n));
+
             const avgScore =
-                profiles.length > 0
+                scores.length > 0
                     ? (
-                          profiles.reduce(
-                              (s, p) => s + (parseFloat(p.risk_score) || 0),
-                              0
-                          ) /
-                          profiles.length /
+                          scores.reduce((s, n) => s + n, 0) /
+                          scores.length /
                           20
                       ).toFixed(1)
-                    : "0.0";
+                    : null;
 
             setRiskSummary({
                 complianceRate: rate,
@@ -263,7 +265,11 @@ export default function AdminDashboard() {
 
                         <Row
                             label="Avg Risk Score:"
-                            value={`${riskSummary.avgRiskScore} / 5`}
+                            value={
+                                riskSummary.avgRiskScore === null
+                                    ? "N/A"
+                                    : `${riskSummary.avgRiskScore} / 5`
+                            }
                         />
                     </div>
                 </div>
