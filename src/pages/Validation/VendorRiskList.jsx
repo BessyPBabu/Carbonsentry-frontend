@@ -137,18 +137,18 @@ const VendorRiskList = () => {
               {riskProfiles.map((profile) => {
                 
                 const displayScore = toDisplayScore(profile.risk_score);
-                const derivedLevel = profile.risk_level || 'unknown';
+                const riskLevel = profile.risk_level || 'unknown';
                 const scoreColour  =
-                  derivedLevel === 'critical' ? 'text-red-700 font-bold' :
-                  derivedLevel === 'high'     ? 'text-orange-600 font-semibold' :
-                  derivedLevel === 'medium'   ? 'text-yellow-600' :
+                  riskLevel === 'critical' ? 'text-red-700 font-bold' :
+                  riskLevel === 'high'     ? 'text-orange-600 font-semibold' :
+                  riskLevel === 'medium'   ? 'text-yellow-600' :
                                                'text-green-700';
                 return (
                   <tr key={profile.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 font-medium text-gray-900">{profile.vendor_name}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">{profile.vendor_industry || '—'}</td>
                     <td className="px-6 py-4">
-                      <RiskBadge level={derivedLevel} />
+                      <RiskBadge level={riskLevel} />
                     </td>
                     <td className={`px-6 py-4 text-sm ${scoreColour}`}>
                       {displayScore} / 5

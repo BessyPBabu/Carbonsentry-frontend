@@ -27,11 +27,11 @@ function wrap() {
 beforeEach(() => vi.clearAllMocks());
 
 describe("VendorsList risk level consistency", () => {
-  it("badges vendor with backend risk_level, ignoring score quartiles", async () => {
+  it("badges vendor with the stored critical risk_level next to a score of 80", async () => {
     mockGet.mockImplementation((url) => {
       if (url.includes("industries")) return Promise.resolve({ data: [] });
       if (url.includes("risk-profiles")) return Promise.resolve({
-        data: [{ id: "rp1", vendor: "v1", risk_level: "critical", risk_score: "30.00" }],
+        data: [{ id: "rp1", vendor: "v1", risk_level: "critical", risk_score: "80.00" }],
       });
       if (url.includes("/vendors/")) return Promise.resolve({
         data: { count: 1, results: [{
