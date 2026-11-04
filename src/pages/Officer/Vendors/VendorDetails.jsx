@@ -81,7 +81,7 @@ export default function VendorDetails() {
 
 
   const rawScore     = riskProfile ? parseFloat(riskProfile.risk_score) : null;
-  const derivedLevel = riskProfile?.risk_level || vendor.risk_level || "unknown";
+  const riskLevel = riskProfile?.risk_level || vendor.risk_level || "unknown";
   const displayScore = rawScore !== null && !isNaN(rawScore)
     ? (rawScore / RISK_SCORE_DISPLAY_DIVISOR).toFixed(1)
     : null;
@@ -127,14 +127,14 @@ export default function VendorDetails() {
           title="Risk Level"
           value={
             displayScore
-              ? `${derivedLevel.charAt(0).toUpperCase() + derivedLevel.slice(1)} (${displayScore}/5)`
-              : derivedLevel
+              ? `${riskLevel.charAt(0).toUpperCase() + riskLevel.slice(1)} (${displayScore}/5)`
+              : riskLevel
           }
           color={
-            derivedLevel === "low"      ? "green"  :
-            derivedLevel === "medium"   ? "yellow" :
-            derivedLevel === "high"     ? "orange" :
-            derivedLevel === "critical" ? "red"    : "gray"
+            riskLevel === "low"      ? "green"  :
+            riskLevel === "medium"   ? "yellow" :
+            riskLevel === "high"     ? "orange" :
+            riskLevel === "critical" ? "red"    : "gray"
           }
         />
         <InfoCard title="Total Documents"  value={documents.length} />

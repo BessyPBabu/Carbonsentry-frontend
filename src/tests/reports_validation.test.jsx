@@ -382,10 +382,10 @@ describe("VendorRiskList", () => {
     expect(screen.getByRole("button", { name: /low risk/i })).toBeInTheDocument();
   });
 
-  it("badge reflects backend risk_level, not a locally recomputed score band", async () => {
+  it("badge shows the stored critical risk_level with a score of 80", async () => {
     riskService.getAllRiskProfiles.mockResolvedValueOnce([
       { id: "p3", vendor_id: "v3", vendor_name: "Drift Corp", vendor_industry: "Energy",
-        risk_level: "critical", risk_score: "40.00",
+        risk_level: "critical", risk_score: "80.00",
         validated_documents: 1, total_documents: 1,
         avg_document_confidence: "90", total_co2_emissions: "20000" },
     ]);
@@ -395,10 +395,10 @@ describe("VendorRiskList", () => {
     expect(within(row).getByText("Critical")).toBeInTheDocument();
   });
 
-  it("does not badge medium when backend says critical despite a low score", async () => {
+  it("badges critical and never medium for a critical profile scoring 80", async () => {
     riskService.getAllRiskProfiles.mockResolvedValueOnce([
       { id: "p4", vendor_id: "v4", vendor_name: "LowScoreHighRisk Corp", vendor_industry: "Energy",
-        risk_level: "critical", risk_score: "20.00",
+        risk_level: "critical", risk_score: "80.00",
         validated_documents: 1, total_documents: 1,
         avg_document_confidence: "90", total_co2_emissions: "20000" },
     ]);

@@ -252,7 +252,7 @@ export default function VendorsList() {
 
                 const profile     = riskMap[String(vendor.id)];
                 const rawScore    = profile ? parseFloat(profile.risk_score) : null;
-                const derived     = profile?.risk_level || vendor.risk_level || "unknown";
+                const riskLevel   = profile?.risk_level || vendor.risk_level || "unknown";
                 const scoreLabel  = rawScore !== null && !isNaN(rawScore)
                   ? `${(rawScore / RISK_SCORE_DISPLAY_DIVISOR).toFixed(1)}/5`
                   : null;
@@ -283,8 +283,8 @@ export default function VendorsList() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-0.5">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium w-fit ${getRiskBadge(derived)}`}>
-                          {derived}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium w-fit ${getRiskBadge(riskLevel)}`}>
+                          {riskLevel}
                         </span>
                         {scoreLabel && (
                           <span className="text-xs text-gray-400 pl-1">{scoreLabel}</span>

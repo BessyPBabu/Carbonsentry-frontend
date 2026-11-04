@@ -214,7 +214,7 @@ const VendorRiskAnalysis = () => {
     return factors;
   };
 
-  const generateRecommendedActions = (derivedLevel) => {
+  const generateRecommendedActions = (riskLevel) => {
     if (!riskProfile) return [];
     const actions = [];
 
@@ -234,8 +234,7 @@ const VendorRiskAnalysis = () => {
       }
     }
 
-    // Use the score-derived level so recommendations are consistent with the badge
-    if (["high", "critical"].includes(derivedLevel)) {
+    if (["high", "critical"].includes(riskLevel)) {
       actions.push("Schedule immediate compliance audit");
       actions.push("Escalate to senior management for review");
     }
@@ -285,9 +284,9 @@ const VendorRiskAnalysis = () => {
 
   const rawScore     = safeFloat(riskProfile.risk_score);   // 0–100
   const displayScore = (rawScore / RISK_SCORE_DISPLAY_DIVISOR).toFixed(1); // X.X out of 5
-  const derivedLevel = riskProfile.risk_level || 'unknown';
+  const riskLevel = riskProfile.risk_level || 'unknown';
 
-  const recommendedActions = generateRecommendedActions(derivedLevel);
+  const recommendedActions = generateRecommendedActions(riskLevel);
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8">
@@ -319,9 +318,8 @@ const VendorRiskAnalysis = () => {
               {riskProfile.vendor_industry || "Industry Not Specified"}
             </p>
           </div>
-          {/* Badge derived from score, not backend risk_level field */}
           <div className="flex flex-col items-end gap-1">
-            <RiskBadge level={derivedLevel} />
+            <RiskBadge level={riskLevel} />
             <span className="text-xs text-gray-400">
               Score: {displayScore} / 5
             </span>

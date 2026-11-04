@@ -93,6 +93,50 @@ describe("AdminDashboard", () => {
     wrap(<AdminDashboard />);
     await screen.findByText(/risk summary/i);
   });
+
+  const mockProfiles = (profiles) =>
+    mockGet.mockImplementation((url) =>
+      Promise.resolve({
+        data: url.includes("risk-profiles") ? profiles : { results: [], count: 0 },
+      })
+    );
+
+  it("averages only vendors that have a risk score, shown out of 5", async () => {
+    mockProfiles([
+      { id: "p1", vendor_name: "Scored A", risk_level: "critical", risk_score: "80.00" },
+      { id: "p2", vendor_name: "Scored B", risk_level: "medium",   risk_score: "40.00" },
+      { id: "p3", vendor_name: "Unassessed", risk_level: "unknown", risk_score: null },
+    ]);
+    wrap(<AdminDashboard />);
+    const label = await screen.findByText("Avg Risk Score:");
+    expect(label.nextElementSibling).toHaveTextContent("3.0 / 5");
+  });
+
+  it("keeps a real score of 0 in the average", async () => {
+    mockProfiles([
+      { id: "p1", vendor_name: "Zero", risk_level: "low",      risk_score: "0.00" },
+      { id: "p2", vendor_name: "Full", risk_level: "critical", risk_score: "100.00" },
+    ]);
+    wrap(<AdminDashboard />);
+    const label = await screen.findByText("Avg Risk Score:");
+    expect(label.nextElementSibling).toHaveTextContent("2.5 / 5");
+  });
+
+  it("shows N/A when no vendor has a risk score", async () => {
+    mockProfiles([
+      { id: "p1", vendor_name: "Unassessed", risk_level: "unknown", risk_score: null },
+    ]);
+    wrap(<AdminDashboard />);
+    const label = await screen.findByText("Avg Risk Score:");
+    expect(label.nextElementSibling).toHaveTextContent(/^N\/A$/);
+  });
+
+  it("shows N/A when there are no risk profiles", async () => {
+    mockProfiles([]);
+    wrap(<AdminDashboard />);
+    const label = await screen.findByText("Avg Risk Score:");
+    expect(label.nextElementSibling).toHaveTextContent(/^N\/A$/);
+  });
 });
 
 // ══════════════════════════════════════════════════════════════════════
