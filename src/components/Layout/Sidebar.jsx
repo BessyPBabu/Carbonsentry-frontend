@@ -9,6 +9,7 @@ import {
   Settings,
   MessageSquare,
   BookOpen,
+  Gauge,
   X,
 } from "lucide-react";
 
@@ -26,6 +27,7 @@ function getMenuItems(role) {
       { path: "reports",         label: "Reports",          icon: FileText },
       { path: "audit-logs",      label: "Audit Logs",       icon: Activity },
       { path: "user-management", label: "User Management",  icon: Users },
+      { path: "monitoring",      label: "Monitoring",       icon: Gauge },
       { path: "settings",        label: "Settings",         icon: Settings },
       { path: "carbon-knowledge", label: "Carbon Knowledge",  icon: BookOpen },
     ];

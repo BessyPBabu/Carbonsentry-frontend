@@ -3,6 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import reportService from '../../services/reportService';
 import { useAuth } from '../../context/AuthContext';
+import {
+    text, num, fmtNum, pctLabel, scoreLabel, list, resolveRecommendations,
+} from '../../utils/reportFormatters';
 
 const formatDate = (iso) => {
     if (!iso) return '—';
@@ -200,28 +203,140 @@ export default function ReportPreview() {
 
 /* ── VendorComplianceContent ─────────────────────────────────────────────── */
 
-function VendorComplianceContent({ data }) {
-    const vendor  = data.vendor || {};
-    const ev      = data.emission_verification || {};
-    const em      = data.scope_emissions || {};
-    const regs    = data.regulatory_applicability || [];
-    const exposure = data.regulatory_risk_exposure || [];
-    const gaps    = data.compliance_gap_analysis || [];
-    const recs    = data.recommendations || [];
-    const docs    = ev.document_details || [];
+function rangeLabel(prefix, low, high) {
+    const l = num(low, null);
+    const h = num(high, null);
+    if (l === null && h === null) return '—';
+    return `${prefix}${fmtNum(l)} – ${prefix}${fmtNum(h)}`;
+}
 
-    const RA_MET = ev.reasonable_assurance_met;
+function ReductionRoadmapSection({ roadmap }) {
+    if (!roadmap || typeof roadmap !== 'object') return null;
+    const strategies = list(roadmap.strategies).filter((s) => s && typeof s === 'object');
+    const hasFigures = ['current_emissions_tco2e', 'target_emissions_tco2e', 'reduction_needed_tco2e']
+        .some((k) => num(roadmap[k], null) !== null);
+    if (!hasFigures && strategies.length === 0) return null;
+
+    const pct = num(roadmap.reduction_needed_pct, null);
+
+    return (
+        <Section title="CO₂ Reduction Roadmap">
+            {hasFigures && (
+                <StatGrid items={[
+                    { label: 'Current Emissions', value: `${fmtNum(roadmap.current_emissions_tco2e)} tCO₂e` },
+                    { label: 'Target Emissions',  value: `${fmtNum(roadmap.target_emissions_tco2e)} tCO₂e` },
+                    {
+                        label: 'Reduction Needed',
+                        value: `${fmtNum(roadmap.reduction_needed_tco2e)} tCO₂e${pct !== null ? ` (${pct}%)` : ''}`,
+                    },
+                ]} />
+            )}
+            {strategies.length > 0 && (
+                <div className="mt-4">
+                    <DataTable
+                        headers={['Strategy', 'Typical Reduction', 'Timeframe', 'Cost']}
+                        rows={strategies.map((st, i) => [
+                            <div key={`strategy-${i}`}>
+                                <p>{text(st.strategy)}</p>
+                                {text(st.description, null) && (
+                                    <p className="text-xs text-gray-500 mt-0.5">{st.description}</p>
+                                )}
+                            </div>,
+                            num(st.typical_reduction_pct, null) !== null ? `${num(st.typical_reduction_pct)}%` : '—',
+                            text(st.timeframe),
+                            text(st.cost_level),
+                        ])}
+                    />
+                </div>
+            )}
+            {text(roadmap.note, null) && (
+                <p className="text-xs text-gray-500 mt-3">{roadmap.note}</p>
+            )}
+        </Section>
+    );
+}
+
+function CarbonCreditSection({ guidance }) {
+    if (!guidance || typeof guidance !== 'object') return null;
+    const creditTypes = list(guidance.credit_types).filter((c) => c && typeof c === 'object');
+    const steps = list(guidance.steps).filter((s) => text(s, null) !== null);
+    const hasFigures = [
+        'credits_needed_tco2e', 'estimated_cost_usd_low', 'estimated_cost_usd_high',
+        'estimated_cost_inr_low', 'estimated_cost_inr_high',
+    ].some((k) => num(guidance[k], null) !== null);
+    if (!hasFigures && creditTypes.length === 0 && steps.length === 0) return null;
+
+    return (
+        <Section title="Carbon Credit Guidance">
+            {hasFigures && (
+                <StatGrid items={[
+                    { label: 'Credits Needed',       value: `${fmtNum(guidance.credits_needed_tco2e)} tCO₂e` },
+                    { label: 'Estimated Cost (USD)', value: rangeLabel('$', guidance.estimated_cost_usd_low, guidance.estimated_cost_usd_high) },
+                    { label: 'Estimated Cost (INR)', value: rangeLabel('₹', guidance.estimated_cost_inr_low, guidance.estimated_cost_inr_high) },
+                ]} />
+            )}
+            {creditTypes.length > 0 && (
+                <div className="mt-4">
+                    <DataTable
+                        headers={['Credit Type', 'Price Range', 'Best For', 'How to Buy']}
+                        rows={creditTypes.map((c, i) => [
+                            <div key={`credit-${i}`}>
+                                <p>{text(c.type)}</p>
+                                {text(c.standard, null) && (
+                                    <p className="text-xs text-gray-500 mt-0.5">{c.standard}</p>
+                                )}
+                            </div>,
+                            text(c.price_range),
+                            text(c.best_for),
+                            text(c.how_to_buy),
+                        ])}
+                    />
+                </div>
+            )}
+            {steps.length > 0 && (
+                <ol className="mt-4 space-y-1 list-decimal pl-5 text-sm text-gray-700">
+                    {steps.map((st, i) => <li key={i}>{st.replace(/^Step\s*\d+:\s*/i, '')}</li>)}
+                </ol>
+            )}
+            {text(guidance.important_note, null) && (
+                <p className="text-xs text-gray-500 mt-3">{guidance.important_note}</p>
+            )}
+        </Section>
+    );
+}
+
+
+function VendorComplianceContent({ data }) {
+    const vendor    = data.vendor || {};
+    const ev        = data.emission_verification || {};
+    const em        = data.scope_emissions || {};
+    const regs      = list(data.regulatory_applicability);
+    const exposure  = list(data.regulatory_risk_exposure);
+    const gaps      = list(data.compliance_gap_analysis);
+    const recs      = resolveRecommendations(data);
+    const checklist = list(data.action_checklist);
+    const retention = data.vendor_retention || {};
+    const docs      = list(ev.document_details);
+    const thresholds = em.industry_thresholds && typeof em.industry_thresholds === 'object'
+        ? em.industry_thresholds : {};
+    const hasThresholds = ['low', 'medium', 'high', 'critical'].some((k) => thresholds[k] != null);
+    const hasRetention = ['recommendation', 'reason', 'confidence_level', 'review_date']
+        .some((k) => text(retention[k], null) !== null);
+
+    const RA_MET    = ev.reasonable_assurance_met;
+    const threshold = num(ev.assurance_threshold, 75);
+    const avgConf   = num(ev.average_ai_confidence);
 
     return (
         <div className="space-y-8">
             {/* Vendor header */}
             <Section title="Vendor Overview">
                 <StatGrid items={[
-                    { label: 'Vendor',            value: vendor.name || '—' },
-                    { label: 'Industry',          value: vendor.industry || '—' },
-                    { label: 'Country',           value: vendor.country || '—' },
-                    { label: 'Compliance Status', value: (vendor.compliance_status || '—').replace('_', ' ') },
-                    { label: 'Risk Level',        value: vendor.risk_level || '—' },
+                    { label: 'Vendor',            value: text(vendor.name) },
+                    { label: 'Industry',          value: text(vendor.industry) },
+                    { label: 'Country',           value: text(vendor.country) },
+                    { label: 'Compliance Status', value: text(vendor.compliance_status).replace(/_/g, ' ') },
+                    { label: 'Risk Level',        value: text(vendor.risk_level) },
                 ]} />
             </Section>
 
@@ -232,12 +347,24 @@ function VendorComplianceContent({ data }) {
                         {regs.map((r, i) => (
                             <div key={i} className="border rounded-lg p-4 bg-gray-50">
                                 <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
-                                    <span className="font-semibold text-gray-900 text-sm">{r.regulation}</span>
-                                    <span className="text-xs text-gray-500">{r.deadline}</span>
+                                    <span className="font-semibold text-gray-900 text-sm">{text(r.regulation)}</span>
+                                    <div className="flex items-center gap-2">
+                                        {r.applies != null && (
+                                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                                r.applies ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                                            }`}>
+                                                {r.applies ? 'Applies' : 'Does not apply'}
+                                            </span>
+                                        )}
+                                        <span className="text-xs text-gray-500">{text(r.deadline)}</span>
+                                    </div>
                                 </div>
-                                <p className="text-sm text-gray-700">{r.requirement}</p>
-                                {r.applies_because && (
-                                    <p className="text-xs text-gray-400 mt-1">Applies because: {r.applies_because}</p>
+                                <p className="text-sm text-gray-700">{text(r.requirement)}</p>
+                                {text(r.assurance_bar, null) && (
+                                    <p className="text-xs text-gray-500 mt-1">Assurance bar: {r.assurance_bar}</p>
+                                )}
+                                {text(r.consequence, null) && (
+                                    <p className="text-xs text-gray-500 mt-1">Consequence: {r.consequence}</p>
                                 )}
                             </div>
                         ))}
@@ -249,26 +376,26 @@ function VendorComplianceContent({ data }) {
             <Section title="Document Verification Status">
                 <div className="mb-4">
                     <StatGrid items={[
-                        { label: 'Total Documents',    value: ev.total_documents || 0 },
-                        { label: 'Valid',              value: ev.valid_documents || 0 },
-                        { label: 'Flagged',            value: ev.flagged_documents || 0 },
-                        { label: 'Invalid',            value: ev.invalid_documents || 0 },
-                        { label: 'Pending',            value: ev.pending_documents || 0 },
-                        { label: 'Expired',            value: ev.expired_documents || 0 },
+                        { label: 'Total Documents',    value: num(ev.total_documents) },
+                        { label: 'Valid',              value: num(ev.valid_documents) },
+                        { label: 'Flagged',            value: num(ev.flagged_documents) },
+                        { label: 'Invalid',            value: num(ev.invalid_documents) },
+                        { label: 'Pending',            value: num(ev.pending_documents) },
+                        { label: 'Expired',            value: num(ev.expired_documents) },
                     ]} />
                 </div>
-                <div className="flex items-center gap-4 mt-3">
-                    <div className="bg-gray-50 rounded-lg p-3 flex-1">
+                <div className="flex items-center gap-4 mt-3 flex-wrap">
+                    <div className="bg-gray-50 rounded-lg p-3 flex-1 min-w-[10rem]">
                         <p className="text-xs text-gray-500 uppercase font-medium mb-1">Avg AI Confidence</p>
                         <p className={`text-2xl font-bold ${
-                            (ev.average_ai_confidence || 0) >= 75 ? 'text-green-600' :
-                            (ev.average_ai_confidence || 0) >= 50 ? 'text-yellow-600' : 'text-red-600'
+                            avgConf >= 75 ? 'text-green-600' :
+                            avgConf >= 50 ? 'text-yellow-600' : 'text-red-600'
                         }`}>
-                            {ev.average_ai_confidence || 0}%
+                            {avgConf}%
                         </p>
                     </div>
-                    <div className={`rounded-lg p-3 flex-1 ${RA_MET ? 'bg-green-50' : 'bg-red-50'}`}>
-                        <p className="text-xs text-gray-500 uppercase font-medium mb-1">Reasonable Assurance (≥75%)</p>
+                    <div className={`rounded-lg p-3 flex-1 min-w-[10rem] ${RA_MET ? 'bg-green-50' : 'bg-red-50'}`}>
+                        <p className="text-xs text-gray-500 uppercase font-medium mb-1">Reasonable Assurance (≥{threshold}%)</p>
                         <p className={`text-lg font-bold ${RA_MET ? 'text-green-700' : 'text-red-700'}`}>
                             {RA_MET ? '✓ Met' : '✗ Not Met'}
                         </p>
@@ -280,15 +407,37 @@ function VendorComplianceContent({ data }) {
                         <p className="text-sm font-medium text-gray-700 mb-2">Document Detail</p>
                         <DataTable
                             headers={['Document Type', 'Status', 'Confidence', 'CO₂ (tonnes)', 'Assurance']}
-                            rows={docs.map((d, i) => [
-                                d.document_type,
-                                <StatusPill key={`${d.document_type}-${i}`} value={d.document_status} />,
-                                d.confidence != null ? `${d.confidence.toFixed(1)}%` : '—',
-                                d.co2_extracted != null ? d.co2_extracted.toLocaleString() : '—',
-                                d.assurance_met
-                                    ? <span className="text-green-600 text-xs font-medium">Met</span>
-                                    : <span className="text-red-500 text-xs font-medium">Not met</span>,
-                            ])}
+                            rows={docs.map((d, i) => {
+                                const meta = [
+                                    text(d.issuing_authority, null),
+                                    text(d.cert_number, null) && `Cert ${d.cert_number}`,
+                                    text(d.expiry_date, null) && `Expires ${d.expiry_date}`,
+                                ].filter(Boolean);
+                                const reasons = list(d.flagged_reasons).filter((r) => text(r, null) !== null);
+                                const confidence = num(d.confidence, null);
+                                const co2 = num(d.co2_extracted, null);
+                                return [
+                                    <div key={`type-${i}`}>
+                                        <p>{text(d.document_type)}</p>
+                                        {meta.length > 0 && (
+                                            <p className="text-xs text-gray-500 mt-0.5">{meta.join(' · ')}</p>
+                                        )}
+                                        {reasons.length > 0 && (
+                                            <ul className="text-xs text-orange-700 mt-0.5 list-disc pl-4">
+                                                {reasons.map((r, j) => <li key={j}>{r}</li>)}
+                                            </ul>
+                                        )}
+                                    </div>,
+                                    <StatusPill key={`${d.document_type}-${i}`} value={d.document_status} />,
+                                    confidence !== null ? `${confidence.toFixed(1)}%` : '—',
+                                    co2 !== null
+                                        ? `${co2.toLocaleString("en-US")}${text(d.co2_unit, null) ? ` ${d.co2_unit}` : ''}`
+                                        : '—',
+                                    d.assurance_met
+                                        ? <span className="text-green-600 text-xs font-medium">Met</span>
+                                        : <span className="text-red-500 text-xs font-medium">Not met</span>,
+                                ];
+                            })}
                         />
                     </div>
                 )}
@@ -297,44 +446,65 @@ function VendorComplianceContent({ data }) {
             {/* Scope emissions */}
             <Section title="Emission Data">
                 <StatGrid items={[
-                    { label: 'Total CO₂ Emissions',  value: `${(em.total_co2_tonnes || 0).toLocaleString()} tonnes CO₂e` },
-                    { label: 'Risk Score',            value: `${em.risk_score || 0} / 100` },
-                    { label: 'Risk Level',            value: em.risk_level || '—' },
+                    { label: 'Total CO₂ Emissions',  value: `${fmtNum(em.total_co2_tonnes, '0')} tonnes CO₂e` },
+                    { label: 'Risk Score',            value: scoreLabel(em.risk_score) },
+                    { label: 'Risk Level',            value: text(em.risk_level) },
+                    { label: 'Emission Band',         value: text(em.emission_band) },
                     { label: 'Exceeds Threshold',     value: em.exceeds_threshold ? 'Yes ⚠' : 'No' },
                 ]} />
+                {hasThresholds && (
+                    <div className="mt-4">
+                        <p className="text-sm font-medium text-gray-700 mb-2">Industry Thresholds (tCO₂e)</p>
+                        <StatGrid items={[
+                            { label: 'Low',      value: fmtNum(thresholds.low) },
+                            { label: 'Medium',   value: fmtNum(thresholds.medium) },
+                            { label: 'High',     value: fmtNum(thresholds.high) },
+                            { label: 'Critical', value: fmtNum(thresholds.critical) },
+                        ]} />
+                    </div>
+                )}
             </Section>
 
             {/* Regulatory risk exposure */}
             {exposure.length > 0 && (
                 <Section title="Regulatory Risk & Financial Exposure">
                     <div className="space-y-3">
-                        {exposure.map((e, i) => (
-                            <div
-                                key={i}
-                                className={`border rounded-lg p-4 ${
-                                    e.status === 'compliant' ? 'bg-green-50 border-green-200' :
-                                    e.status === 'non_compliant' ? 'bg-red-50 border-red-200' :
-                                    'bg-yellow-50 border-yellow-200'
-                                }`}
-                            >
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="font-semibold text-gray-900 text-sm">{e.regulation}</span>
-                                    <StatusPill value={e.status} />
+                        {exposure.map((e, i) => {
+                            const fe = e.financial_exposure && typeof e.financial_exposure === 'object'
+                                ? e.financial_exposure : null;
+                            return (
+                                <div
+                                    key={i}
+                                    className={`border rounded-lg p-4 ${
+                                        e.status === 'compliant' ? 'bg-green-50 border-green-200' :
+                                        e.status === 'non_compliant' ? 'bg-red-50 border-red-200' :
+                                        'bg-yellow-50 border-yellow-200'
+                                    }`}
+                                >
+                                    <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                                        <span className="font-semibold text-gray-900 text-sm">{text(e.regulation)}</span>
+                                        <StatusPill value={e.status} />
+                                    </div>
+                                    {text(e.detail, null) && <p className="text-sm text-gray-700 mb-1">{e.detail}</p>}
+                                    {text(e.risk_rating, null) && (
+                                        <p className="text-xs text-gray-600">Risk rating: {e.risk_rating}</p>
+                                    )}
+                                    {fe && num(fe.eur, null) !== null && (
+                                        <div className="mt-2 text-sm font-medium text-orange-700">
+                                            Estimated CBAM cost: EUR {fmtNum(fe.eur)} / INR {fmtNum(fe.inr)}
+                                            {text(fe.basis, null) && (
+                                                <span className="block text-xs font-normal text-gray-500">{fe.basis}</span>
+                                            )}
+                                        </div>
+                                    )}
+                                    {fe && num(fe.eur, null) === null && num(fe.inr, null) !== null && (
+                                        <div className="mt-1 text-sm font-medium text-red-700">
+                                            Max NGT penalty: {text(fe.display, `INR ${fmtNum(fe.inr)}`)}
+                                        </div>
+                                    )}
                                 </div>
-                                {e.gap && <p className="text-sm text-red-700 mb-1">{e.gap}</p>}
-                                {e.risk && <p className="text-xs text-gray-600">Risk: {e.risk}</p>}
-                                {e.estimated_carbon_cost_eur != null && (
-                                    <div className="mt-2 text-sm font-medium text-orange-700">
-                                        Estimated CBAM cost: EUR {e.estimated_carbon_cost_eur.toLocaleString()} / INR {e.estimated_carbon_cost_inr?.toLocaleString()}
-                                    </div>
-                                )}
-                                {e.max_penalty_display && (
-                                    <div className="mt-1 text-sm font-medium text-red-700">
-                                        Max NGT penalty: {e.max_penalty_display}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </Section>
             )}
@@ -343,19 +513,26 @@ function VendorComplianceContent({ data }) {
             {gaps.length > 0 && (
                 <Section title="Compliance Gap Analysis">
                     <ul className="space-y-2">
-                        {gaps.map((g, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2">
-                                <span className="shrink-0 mt-0.5">⚠</span>
-                                {g}
-                            </li>
-                        ))}
+                        {gaps.map((g, i) => {
+                            const isObj = g !== null && typeof g === 'object';
+                            const label = isObj
+                                ? [text(g.gap, null), text(g.detail, null)].filter(Boolean).join(': ') || '—'
+                                : text(g);
+                            return (
+                                <li key={i} className="flex items-start gap-2 text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2">
+                                    <span className="shrink-0 mt-0.5">⚠</span>
+                                    <span className="flex-1">{label}</span>
+                                    {isObj && text(g.severity, null) && <StatusPill value={g.severity} />}
+                                </li>
+                            );
+                        })}
                     </ul>
                 </Section>
             )}
 
             {/* Recommendations */}
-            {recs.length > 0 && (
-                <Section title="Recommendations">
+            <Section title="Recommendations">
+                {recs.length > 0 ? (
                     <ul className="space-y-2">
                         {recs.map((r, i) => (
                             <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
@@ -364,6 +541,40 @@ function VendorComplianceContent({ data }) {
                             </li>
                         ))}
                     </ul>
+                ) : (
+                    <p className="text-sm text-gray-500">No recommendations</p>
+                )}
+            </Section>
+
+            <ReductionRoadmapSection roadmap={data.reduction_roadmap} />
+            <CarbonCreditSection guidance={data.carbon_credit_guidance} />
+
+            {/* Vendor retention */}
+            {hasRetention && (
+                <Section title="Vendor Retention Recommendation">
+                    <StatGrid items={[
+                        { label: 'Decision',         value: text(retention.recommendation).replace(/_/g, ' ') },
+                        { label: 'Confidence Level', value: text(retention.confidence_level) },
+                        { label: 'Review Date',      value: text(retention.review_date) },
+                    ]} />
+                    {text(retention.reason, null) && (
+                        <p className="text-sm text-gray-700 mt-3">{retention.reason}</p>
+                    )}
+                </Section>
+            )}
+
+            {/* Action checklist */}
+            {checklist.length > 0 && (
+                <Section title="Action Checklist">
+                    <DataTable
+                        headers={['#', 'Action', 'Owner', 'Urgency']}
+                        rows={checklist.map((a, i) => [
+                            text(a?.priority, String(i + 1)),
+                            text(a?.action),
+                            text(a?.owner),
+                            <StatusPill key={`urg-${i}`} value={a?.urgency} />,
+                        ])}
+                    />
                 </Section>
             )}
         </div>
@@ -377,15 +588,15 @@ function VendorRiskContent({ data }) {
     const rs   = data.risk_summary || {};
     const em   = data.emissions || {};
     const docs = data.documents || {};
-    const recs = data.recommendations || [];
+    const recs = resolveRecommendations(data);
 
     return (
         <div className="space-y-8">
             <Section title="Risk Summary">
                 <StatGrid items={[
-                    { label: 'Overall Risk Score', value: `${rs.overall_score || 0} / 100` },
-                    { label: 'Risk Level',         value: (rs.risk_level || '—').toUpperCase() },
-                    { label: 'Compliance Status',  value: data.vendor?.compliance_status || '—' },
+                    { label: 'Overall Risk Score', value: scoreLabel(rs.overall_score) },
+                    { label: 'Risk Level',         value: text(rs.risk_level).toUpperCase() },
+                    { label: 'Compliance Status',  value: text(data.vendor?.compliance_status) },
                 ]} />
                 {rs.factors?.length > 0 && (
                     <div className="mt-4">
@@ -399,18 +610,18 @@ function VendorRiskContent({ data }) {
 
             <Section title="Emissions Data">
                 <StatGrid items={[
-                    { label: 'Total CO₂',        value: `${(em.total_co2 || 0).toLocaleString()} ${em.unit || 'tonnes'}` },
+                    { label: 'Total CO₂',        value: `${fmtNum(em.total_co2, '0')} ${text(em.unit, 'tonnes')}` },
                     { label: 'Exceeds Threshold', value: em.exceeds_threshold ? 'Yes' : 'No' },
                 ]} />
             </Section>
 
             <Section title="Document Status">
                 <StatGrid items={[
-                    { label: 'Total',          value: docs.total || 0 },
-                    { label: 'Valid',          value: docs.valid || 0 },
-                    { label: 'Flagged',        value: docs.flagged || 0 },
-                    { label: 'Expired',        value: docs.expired || 0 },
-                    { label: 'Avg Confidence', value: `${docs.avg_confidence || 0}%` },
+                    { label: 'Total',          value: num(docs.total) },
+                    { label: 'Valid',          value: num(docs.valid) },
+                    { label: 'Flagged',        value: num(docs.flagged) },
+                    { label: 'Expired',        value: num(docs.expired) },
+                    { label: 'Avg Confidence', value: `${num(docs.avg_confidence)}%` },
                 ]} />
             </Section>
 
@@ -431,18 +642,18 @@ function VendorRiskContent({ data }) {
 
 function ComplianceSummaryContent({ data }) {
     const s       = data.summary || {};
-    const vendors = data.vendors || [];
+    const vendors = list(data.vendors);
 
     return (
         <div className="space-y-8">
             <Section title="Organisation Summary">
                 <StatGrid items={[
-                    { label: 'Total Vendors',        value: s.total_vendors || 0 },
-                    { label: 'Compliant',            value: s.compliant || 0 },
-                    { label: 'Non-Compliant',        value: s.non_compliant || 0 },
-                    { label: 'Pending',              value: s.pending || 0 },
-                    { label: 'Expired',              value: s.expired || 0 },
-                    { label: 'High / Critical Risk', value: s.high_risk || 0 },
+                    { label: 'Total Vendors',        value: num(s.total_vendors) },
+                    { label: 'Compliant',            value: num(s.compliant) },
+                    { label: 'Non-Compliant',        value: num(s.non_compliant) },
+                    { label: 'Pending',              value: num(s.pending) },
+                    { label: 'Expired',              value: num(s.expired) },
+                    { label: 'High / Critical Risk', value: num(s.high_risk) },
                 ]} />
             </Section>
             {vendors.length > 0 && (
@@ -451,7 +662,7 @@ function ComplianceSummaryContent({ data }) {
                         headers={['Vendor', 'Industry', 'Compliance', 'Risk Level']}
                         rows={vendors.slice(0, 30).map(v => [
                             v.name,
-                            v.industry || '—',
+                            text(v.industry),
                             <StatusPill key={v.vendor_id}        value={v.compliance_status} />,
                             <StatusPill key={v.vendor_id + '_r'} value={v.risk_level} />,
                         ])}
@@ -464,15 +675,20 @@ function ComplianceSummaryContent({ data }) {
 
 function EmissionsOverviewContent({ data }) {
     const s          = data.summary || {};
-    const topEmitters = data.vendor_emissions || [];
-    const byIndustry  = data.by_industry || [];
+    const topEmitters = list(data.vendor_emissions);
+    const byIndustry  = list(data.by_industry);
 
     return (
         <div className="space-y-8">
             <Section title="Emissions Summary">
                 <StatGrid items={[
-                    { label: 'Vendors with Data', value: s.total_vendors_with_data || 0 },
-                    { label: 'Total Emissions',   value: `${(s.total_emissions || 0).toLocaleString()} ${s.unit || 'tonnes CO2e'}` },
+                    { label: 'Vendors with Data', value: fmtNum(s.total_vendors_with_data) },
+                    {
+                        label: 'Total Emissions',
+                        value: num(s.total_emissions, null) === null
+                            ? '—'
+                            : `${fmtNum(s.total_emissions)} ${text(s.unit, 'tonnes CO2e')}`,
+                    },
                 ]} />
             </Section>
             {topEmitters.length > 0 && (
@@ -481,9 +697,9 @@ function EmissionsOverviewContent({ data }) {
                         headers={['Rank', 'Vendor', 'Industry', 'CO₂ (tonnes)', 'Risk']}
                         rows={topEmitters.slice(0, 15).map((v, i) => [
                             i + 1,
-                            v.vendor_name,
-                            v.industry || '—',
-                            v.total_co2.toLocaleString(),
+                            text(v.vendor_name),
+                            text(v.industry),
+                            fmtNum(v.total_co2),
                             <StatusPill key={v.vendor_id} value={v.risk_level} />,
                         ])}
                     />
@@ -493,7 +709,7 @@ function EmissionsOverviewContent({ data }) {
                 <Section title="By Industry">
                     <DataTable
                         headers={['Industry', 'Total CO₂ (tonnes)', 'Vendors']}
-                        rows={byIndustry.map(row => [row.industry, row.total_co2.toLocaleString(), row.vendor_count])}
+                        rows={byIndustry.map(row => [text(row.industry), fmtNum(row.total_co2), fmtNum(row.vendor_count)])}
                     />
                 </Section>
             )}
@@ -504,26 +720,26 @@ function EmissionsOverviewContent({ data }) {
 function DocumentAuditContent({ data }) {
     const vs             = data.validation_summary || {};
     const qm             = data.quality_metrics || {};
-    const vendorSummaries = data.vendor_summaries || [];
+    const vendorSummaries = list(data.vendor_summaries);
 
     return (
         <div className="space-y-8">
             <Section title="Validation Summary">
                 <StatGrid items={[
-                    { label: 'Total Validations',  value: vs.total_validations || 0 },
-                    { label: 'Completed',          value: vs.completed || 0 },
-                    { label: 'Auto-Approved',      value: vs.auto_approved || 0 },
-                    { label: 'Flagged for Review', value: vs.flagged_for_review || 0 },
-                    { label: 'Auto-Approval Rate', value: `${vs.auto_approval_rate || 0}%` },
-                    { label: 'Failed',             value: vs.failed || 0 },
+                    { label: 'Total Validations',  value: fmtNum(vs.total_validations) },
+                    { label: 'Completed',          value: fmtNum(vs.completed) },
+                    { label: 'Auto-Approved',      value: fmtNum(vs.auto_approved) },
+                    { label: 'Flagged for Review', value: fmtNum(vs.flagged_for_review) },
+                    { label: 'Auto-Approval Rate', value: pctLabel(vs.auto_approval_rate) },
+                    { label: 'Failed',             value: fmtNum(vs.failed) },
                 ]} />
             </Section>
             <Section title="Quality Metrics">
                 <StatGrid items={[
-                    { label: 'Avg Overall Confidence', value: `${qm.avg_overall_confidence || 0}%` },
-                    { label: 'Avg Readability Score',  value: `${qm.avg_readability_score || 0}%` },
-                    { label: 'Avg Relevance Score',    value: `${qm.avg_relevance_score || 0}%` },
-                    { label: 'Avg Authenticity Score', value: `${qm.avg_authenticity_score || 0}%` },
+                    { label: 'Avg Overall Confidence', value: pctLabel(qm.avg_overall_confidence) },
+                    { label: 'Avg Readability Score',  value: pctLabel(qm.avg_readability_score) },
+                    { label: 'Avg Relevance Score',    value: pctLabel(qm.avg_relevance_score) },
+                    { label: 'Avg Authenticity Score', value: pctLabel(qm.avg_authenticity_score) },
                 ]} />
             </Section>
             {vendorSummaries.length > 0 && (
@@ -531,7 +747,7 @@ function DocumentAuditContent({ data }) {
                     <DataTable
                         headers={['Vendor', 'Validations', 'Flagged', 'Avg Confidence']}
                         rows={vendorSummaries.slice(0, 25).map(v => [
-                            v.vendor_name, v.total_validations, v.flagged, `${v.avg_confidence}%`,
+                            text(v.vendor_name), fmtNum(v.total_validations), fmtNum(v.flagged), pctLabel(v.avg_confidence),
                         ])}
                     />
                 </Section>

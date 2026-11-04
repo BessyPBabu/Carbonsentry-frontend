@@ -441,6 +441,46 @@ describe("AIMonitoringPanel", () => {
     expect(validTile.textContent).toBe("10");
     expect(screen.getByText("78%")).toBeInTheDocument();
     expect(screen.getByText("4.2s")).toBeInTheDocument();
+    expect(screen.getByText("Average confidence")).toBeInTheDocument();
+    expect(screen.queryByText(/median confidence/i)).not.toBeInTheDocument();
+  });
+
+  it("prefers avg_confidence over median_confidence", async () => {
+    mockGet.mockResolvedValueOnce({
+      data: { grafana_url: null, metrics: {
+        validations_valid: 4, validations_invalid: 0, validations_review: 0, validations_failed: 0,
+        avg_confidence: 81.5, median_confidence: 70,
+      } },
+    });
+    render(<AIMonitoringPanel />);
+    await screen.findByTestId("stat-valid");
+    expect(screen.getByText("81.5%")).toBeInTheDocument();
+    expect(screen.queryByText("70%")).not.toBeInTheDocument();
+  });
+
+  it("shows a real avg_confidence of 0 instead of falling back", async () => {
+    mockGet.mockResolvedValueOnce({
+      data: { grafana_url: null, metrics: {
+        validations_valid: 1, validations_invalid: 0, validations_review: 0, validations_failed: 0,
+        avg_confidence: 0, median_confidence: 70,
+      } },
+    });
+    render(<AIMonitoringPanel />);
+    await screen.findByTestId("stat-valid");
+    expect(screen.getByText("0%")).toBeInTheDocument();
+    expect(screen.queryByText("70%")).not.toBeInTheDocument();
+  });
+
+  it("counts a zero pipeline value as 0 in the total", async () => {
+    mockGet.mockResolvedValueOnce({
+      data: { grafana_url: null, metrics: {
+        validations_valid: 3, validations_invalid: 0, validations_review: 0, validations_failed: 0,
+      } },
+    });
+    render(<AIMonitoringPanel />);
+    await screen.findByTestId("stat-valid");
+    expect(screen.getByTestId("stat-invalid").textContent).toBe("0");
+    expect(screen.getByTestId("metric-total-validations").textContent).toBe("3");
   });
 
   it("shows 'Metrics unavailable' when metrics is null", async () => {
@@ -449,6 +489,36 @@ describe("AIMonitoringPanel", () => {
     });
     render(<AIMonitoringPanel />);
     await screen.findByText(/metrics unavailable/i);
+    expect(screen.queryByText(/prometheus_url/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no validation activity yet/i)).not.toBeInTheDocument();
+  });
+
+  it("shows 'Metrics unavailable' when metrics is an empty object", async () => {
+    mockGet.mockResolvedValueOnce({ data: { grafana_url: null, metrics: {} } });
+    render(<AIMonitoringPanel />);
+    await screen.findByText(/metrics unavailable/i);
+    expect(screen.queryByTestId("stat-valid")).not.toBeInTheDocument();
+  });
+
+  it("shows 'Metrics unavailable' when the request fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mockGet.mockRejectedValueOnce(new Error("network"));
+    render(<AIMonitoringPanel />);
+    await screen.findByText(/metrics unavailable/i);
+    expect(screen.queryByText(/no validation activity yet/i)).not.toBeInTheDocument();
+  });
+
+  it("shows 'No validation activity yet' when the request succeeds with all counts 0", async () => {
+    mockGet.mockResolvedValueOnce({
+      data: { grafana_url: null, metrics: {
+        validations_valid: 0, validations_invalid: 0, validations_review: 0, validations_failed: 0,
+        avg_confidence: 0, median_confidence: 0,
+      } },
+    });
+    render(<AIMonitoringPanel />);
+    await screen.findByText(/no validation activity yet/i);
+    expect(screen.queryByText(/metrics unavailable/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("stat-valid")).not.toBeInTheDocument();
   });
 
   it("shows 'Open Grafana' toggle button when grafana_url is present", async () => {
@@ -502,7 +572,7 @@ describe("AIMonitoringPanel", () => {
     await screen.findByRole("link", { name: /grafana ↗/i });
   });
 
-  it("shows source label in the subtitle", async () => {
+  it("does not show a source label in the subtitle", async () => {
     mockGet.mockResolvedValueOnce({
       data: {
         source: "prometheus",
@@ -512,6 +582,409 @@ describe("AIMonitoringPanel", () => {
       },
     });
     render(<AIMonitoringPanel />);
-    await screen.findByText(/source: prometheus/i);
+    await screen.findByTestId("stat-valid");
+    expect(screen.getByText(/^updated/i)).toBeInTheDocument();
+    expect(screen.queryByText(/source:/i)).not.toBeInTheDocument();
+  });
+});
+// ══════════════════════════════════════════════════════════════════════════════
+// ReportPreview — compliance report schema
+// ══════════════════════════════════════════════════════════════════════════════
+describe("ReportPreview compliance report schema", () => {
+  const FULL = {
+    generated_at: "2026-11-04",
+    vendor: { id: "v1", name: "Acme Steel", industry: "Steel", country: "India",
+              compliance_status: "non_compliant", risk_level: "high" },
+    regulatory_applicability: [{
+      regulation: "EU CBAM", applies: true, requirement: "Report embedded carbon",
+      assurance_bar: "Verified emission data", deadline: "2026", consequence: "Carbon tariff payable",
+    }],
+    emission_verification: {
+      total_documents: 2, valid_documents: 1, flagged_documents: 1, invalid_documents: 0,
+      pending_documents: 0, expired_documents: 0, average_ai_confidence: 62.4,
+      reasonable_assurance_met: false, assurance_threshold: 75.0,
+      document_details: [{
+        document_type: "Emission Report", document_status: "flagged",
+        validation_status: "completed", confidence: 62.4, assurance_met: false,
+        co2_extracted: 900.5, co2_unit: "tonnes", issuing_authority: "Bureau Veritas",
+        cert_number: "C-123", verification_standard: "ISO 14064", issue_date: "2025-01-01",
+        expiry_date: "2027-01-01", flagged_reasons: ["Signature missing"],
+      }],
+    },
+    scope_emissions: {
+      total_co2_tonnes: 900.5, extracted_from_docs: 900.5, unit: "tonnes CO2e",
+      emission_band: "critical", risk_score: 55, risk_level: "high", exceeds_threshold: true,
+      industry_thresholds: { low: 100, medium: 500, high: 800, critical: 1200 },
+    },
+    regulatory_risk_exposure: [
+      { regulation: "EU CBAM", status: "exposure_calculated", detail: "900.50 tCO2e x EUR 65.0 ETS price",
+        financial_exposure: { eur: 58532.5, inr: 5267925, basis: "EU ETS carbon price estimate" },
+        risk_rating: "high" },
+      { regulation: "NGT India", status: "at_risk", detail: "Emissions exceed the industry threshold",
+        financial_exposure: { inr: 1900000, display: "Up to ₹1.9 Crore" }, risk_rating: "high" },
+    ],
+    compliance_gap_analysis: [
+      { gap: "Expired certificates", detail: "1 certificate(s) expired — renewal required", severity: "high" },
+    ],
+    reduction_roadmap: null,
+    carbon_credit_guidance: null,
+    vendor_retention: { recommendation: "review_for_replacement", reason: "Critical compliance failures",
+                        confidence_level: "high", review_date: "Immediate" },
+    recommendations: ["Request certificate renewal for 1 expired document(s)"],
+    action_checklist: [
+      { priority: 1, action: "Request certificate renewal for 1 expired document(s)",
+        owner: "Compliance Officer", urgency: "high" },
+    ],
+  };
+
+  function renderReport(data, reportType = "vendor_compliance_report") {
+    reportService.getReportById.mockResolvedValueOnce({
+      id: "r1", title: "Schema Report", status: "generated", report_type: reportType,
+      generated_by_name: "Officer", generated_at: new Date().toISOString(), data,
+    });
+    return render(
+      <MemoryRouter initialEntries={["/officer/reports/r1"]}>
+        <Routes>
+          <Route path="/officer/reports/:reportId" element={<ReportPreview />} />
+        </Routes>
+      </MemoryRouter>
+    );
+  }
+
+  const section = (name) => screen.getByRole("heading", { name }).parentElement;
+
+  beforeEach(() => mockOfficer());
+
+  it("renders every section of a new-schema report", async () => {
+    renderReport(FULL);
+    await screen.findByText("Schema Report");
+
+    [
+      "Vendor Overview", "Regulatory Applicability", "Document Verification Status",
+      "Emission Data", "Regulatory Risk & Financial Exposure", "Compliance Gap Analysis",
+      "Recommendations", "Vendor Retention Recommendation", "Action Checklist",
+    ].forEach((name) => expect(screen.getByRole("heading", { name })).toBeInTheDocument());
+
+    expect(screen.getByText("Applies")).toBeInTheDocument();
+    expect(screen.getByText("Assurance bar: Verified emission data")).toBeInTheDocument();
+    expect(screen.getByText("Consequence: Carbon tariff payable")).toBeInTheDocument();
+    expect(screen.getByText(/Reasonable Assurance \(≥75%\)/)).toBeInTheDocument();
+    expect(screen.getByText("Bureau Veritas · Cert C-123 · Expires 2027-01-01")).toBeInTheDocument();
+    expect(screen.getByText("Signature missing")).toBeInTheDocument();
+    expect(screen.getByText("900.5 tonnes")).toBeInTheDocument();
+    expect(screen.getByText("critical", { selector: "p" })).toBeInTheDocument();
+    ["Low", "Medium", "High", "Critical"].forEach((label) =>
+      expect(within(section("Emission Data")).getByText(label)).toBeInTheDocument());
+    expect(screen.getByText("1,200")).toBeInTheDocument();
+    expect(screen.getByText("review for replacement")).toBeInTheDocument();
+    expect(screen.getByText("Critical compliance failures")).toBeInTheDocument();
+    expect(within(section("Action Checklist")).getByRole("table")).toBeInTheDocument();
+    expect(within(section("Action Checklist")).getByText("Compliance Officer")).toBeInTheDocument();
+  });
+
+  it("falls back to action_checklist for recommendations on old reports", async () => {
+    const { recommendations, ...old } = FULL;
+    renderReport(old);
+    await screen.findByText("Schema Report");
+    const items = within(section("Recommendations")).getAllByRole("listitem");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toHaveTextContent("Request certificate renewal for 1 expired document(s)");
+  });
+
+  it("shows 'No recommendations' when neither key is present", async () => {
+    const { recommendations, action_checklist, ...bare } = FULL;
+    renderReport(bare);
+    await screen.findByText("Schema Report");
+    expect(within(section("Recommendations")).getByText("No recommendations")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Action Checklist" })).not.toBeInTheDocument();
+  });
+
+  it("renders gap and exposure dicts without crashing", async () => {
+    renderReport(FULL);
+    await screen.findByText("Schema Report");
+    expect(screen.getByText("Expired certificates: 1 certificate(s) expired — renewal required")).toBeInTheDocument();
+    expect(within(section("Compliance Gap Analysis")).getByText("high")).toBeInTheDocument();
+    expect(screen.getByText("Estimated CBAM cost: EUR 58,532.5 / INR 5,267,925")).toBeInTheDocument();
+    expect(screen.getByText("EU ETS carbon price estimate")).toBeInTheDocument();
+    expect(screen.getByText("Max NGT penalty: Up to ₹1.9 Crore")).toBeInTheDocument();
+    expect(screen.getByText("Emissions exceed the industry threshold")).toBeInTheDocument();
+  });
+
+  it("does not crash on legacy string gaps", async () => {
+    renderReport({ ...FULL, compliance_gap_analysis: ["Plain string gap"] });
+    await screen.findByText("Plain string gap");
+  });
+
+  it("shows N/A for a null risk_score and 0.0 / 100 for a real 0", async () => {
+    const { unmount } = renderReport({ ...FULL, scope_emissions: { ...FULL.scope_emissions, risk_score: null } });
+    await screen.findByText("Schema Report");
+    expect(screen.getByText("N/A")).toBeInTheDocument();
+    unmount();
+
+    renderReport({ ...FULL, scope_emissions: { ...FULL.scope_emissions, risk_score: 0 } });
+    await screen.findByText("Schema Report");
+    expect(screen.getByText("0.0 / 100")).toBeInTheDocument();
+    expect(screen.queryByText("N/A")).not.toBeInTheDocument();
+  });
+
+  it("keeps real zero values as 0 and shows a dash for missing text", async () => {
+    renderReport({
+      ...FULL,
+      vendor: { name: "Zero Vendor", industry: null, country: "", compliance_status: "pending", risk_level: "low" },
+      emission_verification: {
+        ...FULL.emission_verification, total_documents: 0, average_ai_confidence: 0,
+        document_details: [{ document_type: "Cert", document_status: "valid", confidence: 0,
+                             co2_extracted: 0, co2_unit: "tonnes", assurance_met: false }],
+      },
+      scope_emissions: { ...FULL.scope_emissions, total_co2_tonnes: 0 },
+    });
+    await screen.findByText("Schema Report");
+    expect(screen.getByText("0%")).toBeInTheDocument();
+    expect(screen.getByText("0 tonnes CO₂e")).toBeInTheDocument();
+    const row = within(section("Document Verification Status")).getByText("Cert").closest("tr");
+    expect(within(row).getByText("0.0%")).toBeInTheDocument();
+    expect(within(row).getByText("0 tonnes")).toBeInTheDocument();
+    const overview = section("Vendor Overview");
+    expect(within(overview).getAllByText("—")).toHaveLength(2);
+  });
+
+  it("does not render empty headings for sections without data", async () => {
+    renderReport({ vendor: { name: "Bare" } });
+    await screen.findByText("Schema Report");
+    [
+      "Regulatory Applicability", "Regulatory Risk & Financial Exposure", "Compliance Gap Analysis",
+      "Vendor Retention Recommendation", "Action Checklist",
+    ].forEach((name) => expect(screen.queryByRole("heading", { name })).not.toBeInTheDocument());
+    expect(screen.queryByText("Industry Thresholds (tCO₂e)")).not.toBeInTheDocument();
+    expect(screen.queryByText("Document Detail")).not.toBeInTheDocument();
+  });
+
+  it("vendor_risk report shows N/A for a null overall score and 0.0 / 100 for a real 0", async () => {
+    const base = { vendor: { compliance_status: "pending" }, emissions: {}, documents: {}, recommendations: [] };
+    const { unmount } = renderReport({ ...base, risk_summary: { overall_score: null, risk_level: "unknown" } }, "vendor_risk");
+    await screen.findByText("Schema Report");
+    expect(screen.getByText("N/A")).toBeInTheDocument();
+    unmount();
+
+    renderReport({ ...base, risk_summary: { overall_score: 0, risk_level: "low" } }, "vendor_risk");
+    await screen.findByText("Schema Report");
+    expect(screen.getByText("0.0 / 100")).toBeInTheDocument();
+  });
+
+  it("vendor_risk report hides recommendations when empty and shows the checklist fallback", async () => {
+    renderReport({
+      vendor: {}, risk_summary: { overall_score: 10, risk_level: "low" }, emissions: {}, documents: {},
+      action_checklist: [{ priority: 1, action: "Do the thing", owner: "O", urgency: "low" }],
+    }, "vendor_risk");
+    await screen.findByText("Schema Report");
+    expect(within(section("Recommendations")).getByText("Do the thing")).toBeInTheDocument();
+  });
+
+  it("compliance_summary shows 0 for missing counts and keeps a real 0", async () => {
+    renderReport({
+      summary: { total_vendors: 3, compliant: 0 },
+      vendors: [{ vendor_id: "v1", name: "NoIndustry", industry: null,
+                  compliance_status: "pending", risk_level: "unknown" }],
+    }, "compliance_summary");
+    await screen.findByText("Schema Report");
+    const summary = section("Organisation Summary");
+    expect(within(summary).getByText("3")).toBeInTheDocument();
+    expect(within(summary).getAllByText("0").length).toBeGreaterThanOrEqual(5);
+    const row = screen.getByText("NoIndustry").closest("tr");
+    expect(within(row).getByText("—")).toBeInTheDocument();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ReportPreview — reduction roadmap and carbon credit guidance
+// ══════════════════════════════════════════════════════════════════════════════
+describe("ReportPreview roadmap and carbon credit guidance", () => {
+  const ROADMAP = {
+    current_emissions_tco2e: 50000, target_emissions_tco2e: 750,
+    reduction_needed_tco2e: 49250, reduction_needed_pct: 98.5,
+    strategies: [
+      { strategy: "Switch to renewable energy", description: "Source electricity from solar/wind PPAs.",
+        typical_reduction_pct: 40, timeframe: "6–18 months", cost_level: "medium" },
+      { strategy: "Internal carbon price", description: "Set a shadow price.",
+        typical_reduction_pct: 0, timeframe: "Policy change", cost_level: "none" },
+    ],
+    note: "Strategies are ordered from quickest wins to longer-term structural changes.",
+  };
+  const CREDITS = {
+    credits_needed_tco2e: 50000,
+    estimated_cost_usd_low: 250000, estimated_cost_usd_high: 2500000,
+    estimated_cost_inr_low: 20750000, estimated_cost_inr_high: 207500000,
+    credit_types: [{
+      type: "Gold Standard Credit", standard: "Gold Standard Foundation",
+      price_range: "USD 15–50 per tonne", best_for: "Premium quality", how_to_buy: "Via certified brokers",
+    }],
+    steps: ["Step 1: Calculate verified emission baseline", "Step 2: Set internal reduction targets"],
+    important_note: "Carbon credits are a bridge measure, not a substitute for reductions.",
+  };
+
+  function renderReport(extra) {
+    reportService.getReportById.mockResolvedValueOnce({
+      id: "r1", title: "Roadmap Report", status: "generated", report_type: "vendor_compliance_report",
+      generated_by_name: "Officer", generated_at: new Date().toISOString(),
+      data: { vendor: { name: "Acme" }, ...extra },
+    });
+    return render(
+      <MemoryRouter initialEntries={["/officer/reports/r1"]}>
+        <Routes>
+          <Route path="/officer/reports/:reportId" element={<ReportPreview />} />
+        </Routes>
+      </MemoryRouter>
+    );
+  }
+
+  const heading = (name) => screen.queryByRole("heading", { name });
+
+  beforeEach(() => mockOfficer());
+
+  it("renders the reduction roadmap with figures, strategies and note", async () => {
+    renderReport({ reduction_roadmap: ROADMAP });
+    await screen.findByText("Roadmap Report");
+    const section = heading("CO₂ Reduction Roadmap").parentElement;
+    expect(within(section).getByText("50,000 tCO₂e")).toBeInTheDocument();
+    expect(within(section).getByText("750 tCO₂e")).toBeInTheDocument();
+    expect(within(section).getByText("49,250 tCO₂e (98.5%)")).toBeInTheDocument();
+    expect(within(section).getByText("Switch to renewable energy")).toBeInTheDocument();
+    expect(within(section).getByText("Source electricity from solar/wind PPAs.")).toBeInTheDocument();
+    expect(within(section).getByText("40%")).toBeInTheDocument();
+    expect(within(section).getByText("0%")).toBeInTheDocument();
+    expect(within(section).getByText(/ordered from quickest wins/)).toBeInTheDocument();
+    expect(within(section).getAllByRole("row")).toHaveLength(3);
+  });
+
+  it("renders carbon credit guidance with ranges, types, steps and note", async () => {
+    renderReport({ carbon_credit_guidance: CREDITS });
+    await screen.findByText("Roadmap Report");
+    const section = heading("Carbon Credit Guidance").parentElement;
+    expect(within(section).getByText("50,000 tCO₂e")).toBeInTheDocument();
+    expect(within(section).getByText("$250,000 – $2,500,000")).toBeInTheDocument();
+    expect(within(section).getByText("₹20,750,000 – ₹207,500,000")).toBeInTheDocument();
+    expect(within(section).getByText("Gold Standard Credit")).toBeInTheDocument();
+    expect(within(section).getByText("USD 15–50 per tonne")).toBeInTheDocument();
+    const steps = within(section).getAllByRole("listitem");
+    expect(steps.map((li) => li.textContent)).toEqual([
+      "Calculate verified emission baseline", "Set internal reduction targets",
+    ]);
+    expect(within(section).getByText(/bridge measure/)).toBeInTheDocument();
+  });
+
+  it.each([
+    ["null", { reduction_roadmap: null, carbon_credit_guidance: null }],
+    ["missing", {}],
+    ["empty objects", { reduction_roadmap: {}, carbon_credit_guidance: {} }],
+    ["empty lists", {
+      reduction_roadmap: { strategies: [] },
+      carbon_credit_guidance: { credit_types: [], steps: [] },
+    }],
+    ["wrong types", { reduction_roadmap: "bad", carbon_credit_guidance: ["bad"] }],
+  ])("renders no roadmap or credit headings when sections are %s", async (_label, extra) => {
+    renderReport(extra);
+    await screen.findByText("Roadmap Report");
+    expect(heading("CO₂ Reduction Roadmap")).not.toBeInTheDocument();
+    expect(heading("Carbon Credit Guidance")).not.toBeInTheDocument();
+  });
+
+  it("keeps a real 0 in roadmap figures and does not invent missing ones", async () => {
+    renderReport({
+      reduction_roadmap: {
+        current_emissions_tco2e: 0, target_emissions_tco2e: 0, reduction_needed_tco2e: 0,
+        reduction_needed_pct: 0, strategies: [{ strategy: "Only name" }],
+      },
+    });
+    await screen.findByText("Roadmap Report");
+    const section = heading("CO₂ Reduction Roadmap").parentElement;
+    expect(within(section).getAllByText("0 tCO₂e").length).toBe(2);
+    expect(within(section).getByText("0 tCO₂e (0%)")).toBeInTheDocument();
+    const row = within(section).getByText("Only name").closest("tr");
+    expect(within(row).getAllByText("—")).toHaveLength(3);
+  });
+
+  it("renders partial credit guidance without empty tables", async () => {
+    renderReport({ carbon_credit_guidance: { credits_needed_tco2e: 0, estimated_cost_usd_low: 0, estimated_cost_usd_high: 0 } });
+    await screen.findByText("Roadmap Report");
+    const section = heading("Carbon Credit Guidance").parentElement;
+    expect(within(section).getByText("$0 – $0")).toBeInTheDocument();
+    expect(within(section).queryByRole("table")).not.toBeInTheDocument();
+    expect(within(section).queryByRole("list")).not.toBeInTheDocument();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ReportPreview — null vs zero in emissions overview and document audit
+// ══════════════════════════════════════════════════════════════════════════════
+describe("ReportPreview null vs zero", () => {
+  function renderReport(reportType, data) {
+    reportService.getReportById.mockResolvedValueOnce({
+      id: "r1", title: "NullZero Report", status: "generated", report_type: reportType,
+      generated_by_name: "Officer", generated_at: new Date().toISOString(), data,
+    });
+    return render(
+      <MemoryRouter initialEntries={["/officer/reports/r1"]}>
+        <Routes>
+          <Route path="/officer/reports/:reportId" element={<ReportPreview />} />
+        </Routes>
+      </MemoryRouter>
+    );
+  }
+  const section = (name) => screen.getByRole("heading", { name }).parentElement;
+
+  beforeEach(() => mockOfficer());
+
+  it("emissions overview shows a dash for null values and keeps a real 0", async () => {
+    const { unmount } = renderReport("emissions_overview", {
+      summary: { total_vendors_with_data: null, total_emissions: null, unit: "tonnes CO2e" },
+      vendor_emissions: [{ vendor_id: "v1", vendor_name: "Nullco", industry: null, total_co2: null, risk_level: "unknown" }],
+      by_industry: [{ industry: "Steel", total_co2: null, vendor_count: null }],
+    });
+    await screen.findByText("NullZero Report");
+    expect(within(section("Emissions Summary")).getAllByText("—")).toHaveLength(2);
+    expect(within(screen.getByText("Nullco").closest("tr")).getAllByText("—")).toHaveLength(2);
+    expect(within(screen.getByText("Steel").closest("tr")).getAllByText("—")).toHaveLength(2);
+    unmount();
+
+    renderReport("emissions_overview", {
+      summary: { total_vendors_with_data: 0, total_emissions: 0, unit: "tonnes CO2e" },
+      vendor_emissions: [{ vendor_id: "v1", vendor_name: "Zeroco", industry: "Steel", total_co2: 0, risk_level: "low" }],
+      by_industry: [{ industry: "Steel", total_co2: 0, vendor_count: 0 }],
+    });
+    await screen.findByText("NullZero Report");
+    const summary = section("Emissions Summary");
+    expect(within(summary).getByText("0")).toBeInTheDocument();
+    expect(within(summary).getByText("0 tonnes CO2e")).toBeInTheDocument();
+    expect(within(screen.getByText("Zeroco").closest("tr")).getByText("0")).toBeInTheDocument();
+    expect(within(section("By Industry")).getAllByText("0")).toHaveLength(2);
+    expect(within(summary).queryByText("—")).not.toBeInTheDocument();
+  });
+
+  it("document audit shows a dash for null values and keeps a real 0", async () => {
+    const { unmount } = renderReport("document_audit", {
+      validation_summary: {},
+      quality_metrics: { avg_overall_confidence: null },
+      vendor_summaries: [{ vendor_name: "Nullco", total_validations: null, flagged: null, avg_confidence: null }],
+    });
+    await screen.findByText("NullZero Report");
+    expect(within(section("Validation Summary")).getAllByText("—")).toHaveLength(6);
+    expect(within(section("Quality Metrics")).getAllByText("—")).toHaveLength(4);
+    expect(within(screen.getByText("Nullco").closest("tr")).getAllByText("—")).toHaveLength(3);
+    unmount();
+
+    renderReport("document_audit", {
+      validation_summary: { total_validations: 0, completed: 0, auto_approved: 0, flagged_for_review: 0, auto_approval_rate: 0, failed: 0 },
+      quality_metrics: { avg_overall_confidence: 0, avg_readability_score: 0, avg_relevance_score: 0, avg_authenticity_score: 0 },
+      vendor_summaries: [{ vendor_name: "Zeroco", total_validations: 0, flagged: 0, avg_confidence: 0 }],
+    });
+    await screen.findByText("NullZero Report");
+    const summary = section("Validation Summary");
+    expect(within(summary).getAllByText("0")).toHaveLength(5);
+    expect(within(summary).getByText("0%")).toBeInTheDocument();
+    expect(within(section("Quality Metrics")).getAllByText("0%")).toHaveLength(4);
+    const row = screen.getByText("Zeroco").closest("tr");
+    expect(within(row).getAllByText("0")).toHaveLength(2);
+    expect(within(row).getByText("0%")).toBeInTheDocument();
+    expect(screen.queryByText("—")).not.toBeInTheDocument();
   });
 });

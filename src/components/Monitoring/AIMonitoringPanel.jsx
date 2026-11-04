@@ -94,17 +94,27 @@ function GrafanaEmbed({ url }) {
   );
 }
 
+const PIPELINE_COUNTS = [
+  "validations_valid", "validations_invalid", "validations_review", "validations_failed",
+];
+
+function hasNoActivity(metrics) {
+  return PIPELINE_COUNTS.every((key) => metrics[key] === 0);
+}
+
 // ── DB metrics panel ───────────────────────────────────────────────────────
 function DbMetricsPanel({ metrics }) {
   if (!metrics) return null;
 
   const total =
-    (metrics.validations_valid   || 0) +
-    (metrics.validations_invalid || 0) +
-    (metrics.validations_review  || 0) +
-    (metrics.validations_failed  || 0);
+    (metrics.validations_valid   ?? 0) +
+    (metrics.validations_invalid ?? 0) +
+    (metrics.validations_review  ?? 0) +
+    (metrics.validations_failed  ?? 0);
 
-  const geminiTotal = (metrics.gemini_success || 0) + (metrics.gemini_failed || 0);
+  const avgConfidence = metrics.avg_confidence ?? metrics.median_confidence;
+
+  const geminiTotal = (metrics.gemini_success ?? 0) + (metrics.gemini_failed ?? 0);
   const geminiPct   = geminiTotal > 0
     ? Math.round((metrics.gemini_success / geminiTotal) * 100)
     : null;
@@ -127,10 +137,10 @@ function DbMetricsPanel({ metrics }) {
         {total > 0 && (
           <div className="mt-2 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden flex">
             {[
-              { key: "valid",   pct: (metrics.validations_valid   || 0) / total, cls: "bg-green-400" },
-              { key: "invalid", pct: (metrics.validations_invalid || 0) / total, cls: "bg-red-400" },
-              { key: "review",  pct: (metrics.validations_review  || 0) / total, cls: "bg-yellow-400" },
-              { key: "failed",  pct: (metrics.validations_failed  || 0) / total, cls: "bg-gray-400" },
+              { key: "valid",   pct: (metrics.validations_valid   ?? 0) / total, cls: "bg-green-400" },
+              { key: "invalid", pct: (metrics.validations_invalid ?? 0) / total, cls: "bg-red-400" },
+              { key: "review",  pct: (metrics.validations_review  ?? 0) / total, cls: "bg-yellow-400" },
+              { key: "failed",  pct: (metrics.validations_failed  ?? 0) / total, cls: "bg-gray-400" },
             ].map(({ key, pct, cls }) =>
               pct > 0 ? (
                 <div
@@ -147,9 +157,9 @@ function DbMetricsPanel({ metrics }) {
       {/* Confidence + duration */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Median Confidence</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Average confidence</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
-            {metrics.median_confidence != null ? `${metrics.median_confidence}%` : "—"}
+            {avgConfidence != null ? `${avgConfidence}%` : "—"}
           </p>
         </div>
         <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
@@ -185,7 +195,7 @@ function DbMetricsPanel({ metrics }) {
         </p>
         <MetricRow
           label="Total validations"
-          value={total || "—"}
+          value={total}
           testId="metric-total-validations"
         />
         {metrics.avg_processing_time_s != null && (
@@ -208,7 +218,6 @@ function DbMetricsPanel({ metrics }) {
 export default function AIMonitoringPanel() {
   const [metrics,     setMetrics]     = useState(null);
   const [grafanaUrl,  setGrafanaUrl]  = useState(null);
-  const [source,      setSource]      = useState("database");
   const [loading,     setLoading]     = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [showGrafana, setShowGrafana] = useState(false);
@@ -219,9 +228,9 @@ export default function AIMonitoringPanel() {
     try {
       setLoading(true);
       const res = await api.get("/ai-validation/monitoring/");
-      setMetrics(res.data.metrics     || null);
+      const received = res.data.metrics;
+      setMetrics(received && Object.keys(received).length > 0 ? received : null);
       setGrafanaUrl(res.data.grafana_url || null);
-      setSource(res.data.source       || "database");
       setLastUpdated(new Date());
     } catch (err) {
       console.error("AIMonitoringPanel.fetchMetrics:", err);
@@ -253,7 +262,6 @@ export default function AIMonitoringPanel() {
           {timeSince && (
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
               Updated {timeSince}
-              <span className="ml-2 capitalize">· source: {source}</span>
             </p>
           )}
         </div>
@@ -333,20 +341,17 @@ export default function AIMonitoringPanel() {
           />
           Loading metrics…
         </div>
+      ) : metrics && hasNoActivity(metrics) ? (
+        <div className="h-44 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 text-sm gap-2">
+          <span className="text-2xl">📊</span>
+          <span>No validation activity yet</span>
+        </div>
       ) : metrics ? (
         <DbMetricsPanel metrics={metrics} />
       ) : (
         <div className="h-44 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 text-sm gap-2">
           <span className="text-2xl">📡</span>
           <span>Metrics unavailable</span>
-          <span className="text-xs text-center max-w-xs">
-            Set{" "}
-            <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded text-xs">
-              PROMETHEUS_URL
-            </code>{" "}
-            in your .env to enable live Prometheus data, or ensure the
-            monitoring endpoint is reachable.
-          </span>
         </div>
       )}
     </div>
