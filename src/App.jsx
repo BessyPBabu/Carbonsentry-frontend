@@ -20,6 +20,7 @@ import AddUser         from "./pages/Admin/AddUser";
 import EditUser        from "./pages/Admin/EditUser";
 import Settings        from "./pages/Admin/Settings";
 import CarbonKnowledge   from "./pages/Admin/CarbonKnowledge";
+import MonitoringPage    from "./pages/Admin/MonitoringPage";
 
 import OfficerDashboard   from "./pages/Officer/Dashboard";
 import VendorsList        from "./pages/Officer/Vendors/VendorsList";
@@ -88,6 +89,7 @@ function App() {
               <Route path="user-management/add"             element={<AddUser />} />
               <Route path="user-management/edit/:id"        element={<EditUser />} />
               <Route path="settings"                        element={<Settings />} />
+              <Route path="monitoring"                      element={<MonitoringPage />} />
               <Route path="carbon-knowledge"                element={<CarbonKnowledge />} />
             </Route>
 

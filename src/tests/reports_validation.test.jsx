@@ -441,6 +441,46 @@ describe("AIMonitoringPanel", () => {
     expect(validTile.textContent).toBe("10");
     expect(screen.getByText("78%")).toBeInTheDocument();
     expect(screen.getByText("4.2s")).toBeInTheDocument();
+    expect(screen.getByText("Average confidence")).toBeInTheDocument();
+    expect(screen.queryByText(/median confidence/i)).not.toBeInTheDocument();
+  });
+
+  it("prefers avg_confidence over median_confidence", async () => {
+    mockGet.mockResolvedValueOnce({
+      data: { grafana_url: null, metrics: {
+        validations_valid: 4, validations_invalid: 0, validations_review: 0, validations_failed: 0,
+        avg_confidence: 81.5, median_confidence: 70,
+      } },
+    });
+    render(<AIMonitoringPanel />);
+    await screen.findByTestId("stat-valid");
+    expect(screen.getByText("81.5%")).toBeInTheDocument();
+    expect(screen.queryByText("70%")).not.toBeInTheDocument();
+  });
+
+  it("shows a real avg_confidence of 0 instead of falling back", async () => {
+    mockGet.mockResolvedValueOnce({
+      data: { grafana_url: null, metrics: {
+        validations_valid: 1, validations_invalid: 0, validations_review: 0, validations_failed: 0,
+        avg_confidence: 0, median_confidence: 70,
+      } },
+    });
+    render(<AIMonitoringPanel />);
+    await screen.findByTestId("stat-valid");
+    expect(screen.getByText("0%")).toBeInTheDocument();
+    expect(screen.queryByText("70%")).not.toBeInTheDocument();
+  });
+
+  it("counts a zero pipeline value as 0 in the total", async () => {
+    mockGet.mockResolvedValueOnce({
+      data: { grafana_url: null, metrics: {
+        validations_valid: 3, validations_invalid: 0, validations_review: 0, validations_failed: 0,
+      } },
+    });
+    render(<AIMonitoringPanel />);
+    await screen.findByTestId("stat-valid");
+    expect(screen.getByTestId("stat-invalid").textContent).toBe("0");
+    expect(screen.getByTestId("metric-total-validations").textContent).toBe("3");
   });
 
   it("shows 'Metrics unavailable' when metrics is null", async () => {
@@ -449,6 +489,36 @@ describe("AIMonitoringPanel", () => {
     });
     render(<AIMonitoringPanel />);
     await screen.findByText(/metrics unavailable/i);
+    expect(screen.queryByText(/prometheus_url/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no validation activity yet/i)).not.toBeInTheDocument();
+  });
+
+  it("shows 'Metrics unavailable' when metrics is an empty object", async () => {
+    mockGet.mockResolvedValueOnce({ data: { grafana_url: null, metrics: {} } });
+    render(<AIMonitoringPanel />);
+    await screen.findByText(/metrics unavailable/i);
+    expect(screen.queryByTestId("stat-valid")).not.toBeInTheDocument();
+  });
+
+  it("shows 'Metrics unavailable' when the request fails", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mockGet.mockRejectedValueOnce(new Error("network"));
+    render(<AIMonitoringPanel />);
+    await screen.findByText(/metrics unavailable/i);
+    expect(screen.queryByText(/no validation activity yet/i)).not.toBeInTheDocument();
+  });
+
+  it("shows 'No validation activity yet' when the request succeeds with all counts 0", async () => {
+    mockGet.mockResolvedValueOnce({
+      data: { grafana_url: null, metrics: {
+        validations_valid: 0, validations_invalid: 0, validations_review: 0, validations_failed: 0,
+        avg_confidence: 0, median_confidence: 0,
+      } },
+    });
+    render(<AIMonitoringPanel />);
+    await screen.findByText(/no validation activity yet/i);
+    expect(screen.queryByText(/metrics unavailable/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("stat-valid")).not.toBeInTheDocument();
   });
 
   it("shows 'Open Grafana' toggle button when grafana_url is present", async () => {
@@ -502,7 +572,7 @@ describe("AIMonitoringPanel", () => {
     await screen.findByRole("link", { name: /grafana ↗/i });
   });
 
-  it("shows source label in the subtitle", async () => {
+  it("does not show a source label in the subtitle", async () => {
     mockGet.mockResolvedValueOnce({
       data: {
         source: "prometheus",
@@ -512,7 +582,9 @@ describe("AIMonitoringPanel", () => {
       },
     });
     render(<AIMonitoringPanel />);
-    await screen.findByText(/source: prometheus/i);
+    await screen.findByTestId("stat-valid");
+    expect(screen.getByText(/^updated/i)).toBeInTheDocument();
+    expect(screen.queryByText(/source:/i)).not.toBeInTheDocument();
   });
 });
 // ══════════════════════════════════════════════════════════════════════════════
